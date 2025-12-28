@@ -1,0 +1,29 @@
+# Core backend dependencies
+fastapi==0.115.14          # Modern, high-performance API framework
+uvicorn[standard]==0.35.0  # ASGI server to run FastAPI (includes optional extras like websockets)
+
+# Data processing and model handling
+pandas==2.3.0              # For reading and manipulating Excel data (demographic_district_wise.xlsx, Povertylines.xlsx)
+numpy==1.26.4              # Numerical computations (often required alongside pandas and models)
+openpyxl==3.1.5            # Excel reader/writer engine used by pandas for .xlsx files
+joblib==1.5.1              # Likely needed for loading your pickled model (poverty_model.pkl)
+scikit-learn==1.6.1        # Common for traditional ML models (if your poverty_model.pkl is from sklearn)
+
+# Optional: Frontend for demo/UI (Streamlit as suggested in previous example)
+streamlit==1.46.1          # Quick interactive web UI for recommendation and insights display
+
+# Optional: Additional useful packages (if your NLP involves these)
+# nltk==3.9.1               # Uncomment if using NLTK for text processing in preference parsing
+# spacy==3.8.7               # Uncomment if using spaCy for advanced NLP
+
+# Installation instructions:
+# 1. Create a virtual environment: python -m venv .venv
+# 2. Activate it: source .venv/bin/activate (Linux/Mac) or .venv\Scripts\activate (Windows)
+# 3. Install dependencies: pip install -r requirements.txt
+# 4. Run the app: uvicorn app:app --reload
+
+# Best practices followed:
+# - Exact versions pinned for reproducibility
+# - Only direct/project-relevant dependencies listed (avoid pip freeze bloat)
+# - Comments for clarity
+# - If you add more packages later, update this file manually or use tools like pipreqs
