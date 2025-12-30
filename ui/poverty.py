@@ -1,28 +1,36 @@
-# ui/frontend.py
 import streamlit as st
-import requests
+import pandas as pd
+from service.recommendation_service import RecommendationService
 
-BASE_URL = "http://localhost:8000/api"  # FastAPI server
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-st.title("Region Recommender")
 
-preference = st.text_input("Enter your preference (e.g., 'low poverty rural areas')")
+st.set_page_config(
+    page_title="Region Recommendation System",
+    layout="wide"
+)
+
+st.title("📍 Intelligent Region Recommendation System")
+st.write("Enter your preferences to get top 10 recommended regions")
+
+service = RecommendationService()
+
+user_input = st.text_input(
+    "Describe your preference (e.g. low poverty, high population, urban areas):"
+)
 
 if st.button("Get Recommendations"):
-    response = requests.post(f"{BASE_URL}/recommend", json={"preference": preference})
-    if response.status_code == 200:
-        regions = response.json()["top_regions"]
-        st.session_state["regions"] = regions
-        st.write("Top 10 Regions:")
-        for r in regions:
-            st.write(r)
+    if user_input.strip() == "":
+        st.warning("Please enter a preference.")
+    else:
+        with st.spinner("Analyzing preferences..."):
+            result = service.get_recommendations(user_input)
 
-# Display insights on click (simulate click with selection)
-if "regions" in st.session_state:
-    selected_region = st.selectbox("Select a region for insights", st.session_state["regions"])
-    if selected_region:
-        response = requests.get(f"{BASE_URL}/insights/{selected_region}")
-        if response.status_code == 200:
-            insights = response.json()["insights"]
-            st.write(f"Insights for {selected_region}:")
-            st.json(insights)  # Or format as table/chart
+        df = result["recommendations"]
+
+        st.success("Top 10 Recommended Regions")
+        st.dataframe(
+            df,
+            use_container_width=True
+        )
