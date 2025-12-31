@@ -1,21 +1,44 @@
+import sentence_transformers
+from sentence_transformers import util
 import pickle
 import pandas as pd
+import os
+import torch
 from agents.base_agent import BaseAgent
+
 
 class NLPRecommendationAgent(BaseAgent):
     def __init__(self):
-        with open("model/poverty_model.pkl", "rb") as f:
-            self.model = pickle.load(f)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
 
-        self.region_data = pd.read_excel("data/demograpic_district wise.xlsx")
+        model_path = os.path.join(project_root, "model", "poverty_model.pkl")
+        demographic_path = os.path.join(project_root, "data", "demographic_district_wise.xlsx")
+        poverty_line_path = os.path.join(project_root, "data", "Povertylines.xlsx")
+
+        try:
+            with open(model_path, "rb") as f:
+                self.model = pickle.load(f)
+
+            self.region_data = pd.read_excel(demographic_path)
+            self.poverty_data = pd.read_excel(poverty_line_path)
+
+            self.data_descriptions = self.region_data.astype(str).apply(lambda x: ' '.join(x), axis=1).tolist()
+            self.corpus_embeddings = self.model.encode(self.data_descriptions, convert_to_tensor=True)
+
+        except FileNotFoundError as e:
+            print(
+                f"Error: Missing files. Checked paths:\nModel: {model_path}\nDemographic: {demographic_path}\nPoverty: {poverty_line_path}")
+            raise e
 
     def run(self, input_data: dict):
-        user_text = input_data["preference"]
+        user_text = input_data.get("preference", "")
 
-        # Example vectorization / embedding logic
-        scores = self.model.predict_proba([user_text])[0]
+        query_embedding = self.model.encode(user_text, convert_to_tensor=True)
 
-        self.region_data["score"] = scores[:len(self.region_data)]
+        cos_scores = util.cos_sim(query_embedding, self.corpus_embeddings)[0]
+
+        self.region_data["score"] = cos_scores.cpu().numpy()
 
         top_regions = (
             self.region_data
