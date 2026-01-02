@@ -20,6 +20,11 @@ st.set_page_config(
 def load_service():
     return RecommendationService()
 
+@st.cache_data(show_spinner=False)
+def get_cached_recommendations(text):
+    return service.get_recommendations(text)
+
+
 st.title("📍 Intelligent Region Recommendation System")
 st.write("Enter your preferences to get top 10 recommended regions")
 

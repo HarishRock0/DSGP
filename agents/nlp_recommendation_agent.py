@@ -34,16 +34,23 @@ class NLPRecommendationAgent(BaseAgent):
     def run(self, input_data: dict):
         user_text = input_data.get("preference", "")
 
-        query_embedding = self.model.encode(user_text, convert_to_tensor=True)
+        with torch.no_grad():
+            query_embedding = self.model.encode(
+                user_text,
+                convert_to_tensor=True,
+                normalize_embeddings=True
+            )
 
-        cos_scores = util.cos_sim(query_embedding, self.corpus_embeddings)[0]
+        # Fast dot product (cosine similarity)
+        cos_scores = torch.matmul(query_embedding, self.corpus_embeddings.T)
 
-        self.region_data["score"] = cos_scores.cpu().numpy()
+        scores = cos_scores.cpu().numpy()
+
+        top_idx = scores.argsort()[-10:][::-1]
 
         top_regions = (
-            self.region_data
-            .sort_values("score", ascending=False)
-            .head(10)
+            self.region_data.iloc[top_idx]
+            .assign(score=scores[top_idx])
             .reset_index(drop=True)
         )
 
