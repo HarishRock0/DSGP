@@ -27,27 +27,10 @@ def get_cached_recommendations(text):
     return service.get_recommendations(text)
 
 
-st.title("📍 Intelligent Region Recommendation System")
+st.title(" Intelligent Region Recommendation System")
 st.write("Enter your preferences to get top 10 recommended regions")
 
-# Initialize the service once
-service = load_service()
 
 user_input = st.text_input(
-    "Describe your preference (e.g. low poverty, high population, urban areas):"
+    "Describe your preference (e.g. low risk, high population, urban areas):"
 )
-
-if st.button("Get Recommendations"):
-    if user_input.strip() == "":
-        st.warning("Please enter a preference.")
-    else:
-        with st.spinner("Analyzing preferences..."):
-            result = service.get_recommendations(user_input)
-
-        df = result["recommendations"]
-
-        st.success("Top 10 Recommended Regions")
-        st.dataframe(
-            df,
-            use_container_width=True
-        )

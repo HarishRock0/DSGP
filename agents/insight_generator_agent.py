@@ -27,23 +27,24 @@ class InsightGeneratorAgent(Runnable):
         }
 
     def _demo_insight(self, district: str) -> Dict[str, Any]:
-        # Adjust keys here to match your demographic columns
         if "DISTRICT_N" not in self.demo_df.columns:
-            return {"available": False, "row": {}}
+            return {"available": False, "metrics": {}}
 
         row = self.demo_df[self.demo_df["DISTRICT_N"] == district]
         if row.empty:
-            return {"available": False, "row": {}}
+            return {"available": False, "metrics": {}}
 
         r = row.iloc[0].to_dict()
 
-        # Optional: pick a few common fields if present
-        picked = {}
+        metrics = {}
         for key in ["TOT_POP", "MALE", "FEMALE", "POP_DENSITY", "AREA"]:
             if key in r:
-                picked[key] = r[key]
+                metrics[key] = r[key]
 
-        return {"available": True, "row": picked or r}
+        return {
+            "available": True,
+            "metrics": metrics
+        }
 
     def invoke(self, signal: InsightQuerySignal) -> InsightSignal:
         district = signal.district

@@ -20,6 +20,7 @@ def load_service():
 
 service = load_service()
 
+
 st.title("Intelligent Region Recommendation Dashboard")
 st.caption("NLP recommendations + interactive monthly poverty insights (poverty + demographics only)")
 
@@ -85,6 +86,8 @@ with st.spinner("Generating insights..."):
 
 poverty = insights.get("poverty", {})
 demo = insights.get("demographics", {})
+metrics = demo.get("metrics") or demo.get("row", {})
+
 
 trend_dict = poverty.get("trend", {}) or {}
 latest = poverty.get("latest", None)
@@ -184,11 +187,54 @@ else:
         with st.expander("Show monthly poverty trend data"):
             st.dataframe(chart_df, use_container_width=True)
 
+
 # ---------------------------
 # Demographics
 # ---------------------------
 st.markdown("### Demographics Snapshot")
-if isinstance(demo, dict) and demo:
-    st.dataframe(pd.DataFrame([demo]), use_container_width=True)
+
+if metrics:
+    col1, col2 = st.columns([1, 1.5])
+
+    male = metrics.get("MALE", 0)
+    female = metrics.get("FEMALE", 0)
+    total = metrics.get("TOT_POP", male + female)
+
+    # -------- COL 1 : Metrics --------
+    with col1:
+        st.subheader("Population Stats")
+        st.metric("Male Population", f"{int(male):,}")
+        st.metric("Female Population", f"{int(female):,}")
+        st.metric("Total Population", f"{int(total):,}")
+
+    # -------- COL 2 : Pie Chart --------
+    with col2:
+        st.subheader("Gender Distribution")
+
+        pie_df = pd.DataFrame({
+            "Gender": ["Male", "Female"],
+            "Population": [male, female]
+        })
+
+        pie_fig = px.pie(
+            pie_df,
+            names="Gender",
+            values="Population",
+            hole=0.4,   # donut style
+            title="Male vs Female Population (%)"
+        )
+
+        pie_fig.update_traces(
+            textinfo="percent+label",
+            pull=[0.03, 0.03]
+        )
+
+        pie_fig.update_layout(
+            height=380,
+            margin=dict(t=50, b=20, l=20, r=20)
+        )
+
+        st.plotly_chart(pie_fig, use_container_width=True)
+
 else:
     st.info("No demographic data available for this district.")
