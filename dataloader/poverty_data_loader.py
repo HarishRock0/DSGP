@@ -1,4 +1,7 @@
-import os, pandas as pd, pickle
+import os
+import pickle
+import pandas as pd
+
 
 class PovertyDataLoader:
     def __init__(self, project_root):

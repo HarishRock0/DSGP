@@ -12,6 +12,139 @@ from service.recommendation_service import RecommendationService
 
 st.set_page_config(page_title="Region Recommendation Dashboard", layout="wide")
 
+st.markdown("""
+<style>
+/* ---------- GLOBAL ---------- */
+html, body, [class*="css"] {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont;
+}
+
+.stApp {
+    background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+    color: #e5e7eb;
+}
+
+/* ---------- HEADERS ---------- */
+h1, h2, h3 {
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+h1 {
+    color: #38bdf8;
+}
+
+h3 {
+    color: #e5e7eb;
+}
+
+/* ---------- INPUTS ---------- */
+.stTextInput > div > div > input {
+    background-color: #020617;
+    border-radius: 12px;
+    border: 1px solid #1e293b;
+    color: #e5e7eb;
+    padding: 12px;
+}
+
+.stButton > button {
+    background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+    color: black;
+    border-radius: 14px;
+    padding: 10px 22px;
+    font-weight: 600;
+    border: none;
+}
+
+.stButton > button:hover {
+    transform: scale(1.03);
+    background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+}
+
+/* ---------- METRIC CARDS ---------- */
+[data-testid="metric-container"] {
+    background: rgba(2, 6, 23, 0.9);
+    border: 1px solid #1e293b;
+    padding: 20px;
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+[data-testid="metric-container"] label {
+    color: #94a3b8;
+}
+
+[data-testid="metric-container"] div {
+    color: #38bdf8;
+    font-weight: 700;
+}
+
+/* ---------- DATAFRAME ---------- */
+.stDataFrame {
+    background-color: #020617;
+    border-radius: 14px;
+    border: 1px solid #1e293b;
+}
+
+/* ---------- SELECT / RADIO / TOGGLE ---------- */
+.stSelectbox, .stRadio, .stToggle {
+    background-color: #020617;
+    border-radius: 12px;
+}
+
+/* ---------- SIDEBAR-LIKE CARDS ---------- */
+.control-card {
+    background: rgba(2, 6, 23, 0.85);
+    border: 1px solid #1e293b;
+    padding: 18px;
+    border-radius: 18px;
+    margin-bottom: 16px;
+}
+
+/* ---------- DIVIDERS ---------- */
+hr {
+    border: none;
+    border-top: 1px solid #1e293b;
+    margin: 30px 0;
+}
+/* ---------- POPULATION STATS CARDS ---------- */
+.pop-card {
+    background: linear-gradient(145deg, #020617, #020617);
+    border: 1px solid #1e293b;
+    border-radius: 18px;
+    padding: 18px 22px;
+    margin-bottom: 14px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.45);
+}
+
+.pop-label {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    letter-spacing: 0.4px;
+}
+
+.pop-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-top: 4px;
+}
+
+.pop-male {
+    color: #38bdf8;
+}
+
+.pop-female {
+    color: #f472b6;
+}
+
+.pop-total {
+    color: #22c55e;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
 
 @st.cache_resource
 def load_service():
@@ -21,8 +154,13 @@ def load_service():
 service = load_service()
 
 
-st.title("Intelligent Region Recommendation Dashboard")
-st.caption("NLP recommendations + interactive monthly poverty insights (poverty + demographics only)")
+st.markdown("""
+## 🧠 Intelligent Region Recommendation Dashboard
+<span style="color:#94a3b8">
+NLP-driven recommendations with interactive poverty & demographic analytics
+</span>
+""", unsafe_allow_html=True)
+
 
 # Persist recommendations across reruns
 if "recommendations" not in st.session_state:
@@ -72,13 +210,17 @@ st.subheader("Monthly Poverty & Demographics Dashboard")
 left, right = st.columns([1, 2])
 
 with left:
-    selected_district = st.selectbox("Select a region:", districts)
+    st.markdown('<div class="control-card">', unsafe_allow_html=True)
 
-    st.markdown("##### Chart controls")
+    selected_district = st.selectbox("📍 Select a region", districts)
+    st.markdown("#####  Chart Controls")
     chart_type = st.radio("Chart type", ["Bar", "Line", "Bar + Line"], horizontal=True)
     show_rangeslider = st.toggle("Show range slider", value=True)
     use_log_y = st.toggle("Log scale (Y)", value=False)
-    rolling_window = st.selectbox("Smoothing (months rolling mean)", [1, 2, 3, 6], index=0)
+    rolling_window = st.selectbox("Smoothing (rolling months)", [1, 2, 3, 6], index=0)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 # Generate insights ONLY after a region is selected
 with st.spinner("Generating insights..."):
@@ -202,10 +344,24 @@ if metrics:
 
     # -------- COL 1 : Metrics --------
     with col1:
-        st.subheader("Population Stats")
-        st.metric("Male Population", f"{int(male):,}")
-        st.metric("Female Population", f"{int(female):,}")
-        st.metric("Total Population", f"{int(total):,}")
+        st.subheader("📊 Population Stats")
+
+        st.markdown(f"""
+        <div class="pop-card">
+            <div class="pop-label">Male Population</div>
+            <div class="pop-value pop-male">{int(male):,}</div>
+        </div>
+
+        <div class="pop-card">
+            <div class="pop-label">Female Population</div>
+            <div class="pop-value pop-female">{int(female):,}</div>
+        </div>
+
+        <div class="pop-card">
+            <div class="pop-label">Total Population</div>
+            <div class="pop-value pop-total">{int(total):,}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # -------- COL 2 : Pie Chart --------
     with col2:

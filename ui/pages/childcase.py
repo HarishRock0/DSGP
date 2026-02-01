@@ -1,36 +1,61 @@
-
 import sys
 import os
 import streamlit as st
 import pandas as pd
 
+# ---------------- PATH SETUP ----------------
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-# Now Python can find the 'service' folder in the PROJECT_ROOT
-from service.recommendation_service import RecommendationService
+# ---------------- SERVICE IMPORT ----------------
+from service.child_protection_service import ChildProtectionService
 
+# ---------------- STREAMLIT CONFIG ----------------
 st.set_page_config(
-    page_title="Region Recommendation System",
+    page_title="Child Protection Recommendation System",
     layout="wide"
 )
 
-# Use caching to prevent the slow model from reloading on every interaction
+# ---------------- CACHING ----------------
 @st.cache_resource
 def load_service():
-    return RecommendationService()
+    return ChildProtectionService(PROJECT_ROOT)
 
 @st.cache_data(show_spinner=False)
 def get_cached_recommendations(text):
-    return service.get_recommendations(text)
+    return service.get_child_case_recommendations(text)
 
+# ---------------- LOAD SERVICE ----------------
+service = load_service()
 
-st.title("Intelligent Region Recommendation System")
-st.write("Enter your preferences to get top 10 recommended regions")
-
+# ---------------- UI ----------------
+st.title("Child Protection Risk Recommendation System")
+st.write(
+    "Describe the type of child protection concern to identify districts with higher relevance."
+)
 
 user_input = st.text_input(
-    "Describe your preference (e.g. low risk, high population, urban areas):"
+    "Describe your concern (e.g. high abuse risk, neglected children, vulnerable districts):"
 )
+
+if user_input:
+    with st.spinner("Analyzing child case data..."):
+        result = get_cached_recommendations(user_input)
+
+    if result and "recommendations" in result:
+        df = pd.DataFrame(result["recommendations"])
+
+        st.subheader("🔍 Top 10 Relevant Districts")
+        st.dataframe(
+            df.rename(
+                columns={
+                    "District": "District",
+                    "Avg_cases": "Average Child Cases"
+                }
+            ),
+            use_container_width=True
+        )
+    else:
+        st.warning("No recommendations found. Try refining your description.")

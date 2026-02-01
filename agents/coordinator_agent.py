@@ -1,23 +1,8 @@
-# from langchain_core.runnables import Runnable
-# from signals.nlp_signals import NLPQuerySignal
-# from agents.nlp_recommendation_agent import NLPRecommendationAgent
-#
-# class CoordinatorAgent(Runnable):
-#     def __init__(self, project_root):
-#         self.recommender = NLPRecommendationAgent(project_root)
-#
-#     def invoke(self, user_input: str):
-#         signal = NLPQuerySignal(preference=user_input)
-#         rec_signal = self.recommender.invoke(signal)
-#
-#         return {
-#             "recommendations": rec_signal.districts
-#         }
-
 from langchain_core.runnables import Runnable
 
 from signals.nlp_signals import NLPQuerySignal
 from signals.insight_signals.poverty_insight_signals import InsightQuerySignal
+from signals.child_nlp_signals import ChildNLPSignals
 
 from agents.nlp_recommendation_agent import NLPRecommendationAgent
 from agents.insight_generator_agent import InsightGeneratorAgent
@@ -40,3 +25,11 @@ class CoordinatorAgent(Runnable):
         sig = InsightQuerySignal(district=district)
         out = self.insight_generator.invoke(sig)
         return out.insights
+
+    def invoke_child_cases(self, user_input: str):
+        signal = ChildNLPSignals(preference=user_input)
+        rec_signal = self.recommender.child_case_invoke(signal)
+
+        return {
+            "recommendations": rec_signal.districts
+        }

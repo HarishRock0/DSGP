@@ -1,4 +1,9 @@
-class PovertyDataLoader:
+import os
+import pickle
+import pandas as pd
+
+
+class ChildCasesDataLoader:
     def __init__(self, project_root):
         self.project_root = project_root
 
@@ -11,6 +16,11 @@ class PovertyDataLoader:
 
 
         child_data = pd.read_excel(child_case_path)
-        child_data[['District','Avg_cases']] = child_data.iloc[:, 1:].mean(axis=1)
+        child_data['Avg_cases'] = child_data.iloc[:, 1:].mean(axis=1)
+        child_data['text'] = (
+                "District " + child_data['District'].astype(str) +
+                " has an average of " + child_data['Avg_cases'].astype(str) +
+                " child cases"
+        )
 
-        return child_data , child_case_model
+        return child_case_model, child_data

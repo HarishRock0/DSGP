@@ -1,4 +1,4 @@
-from pydinamic import BaseModel
+from pydantic import BaseModel
 
 class ChildNLPSignals(BaseModel):
     preference : str
