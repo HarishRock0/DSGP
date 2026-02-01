@@ -2,7 +2,10 @@ from langchain_core.runnables import Runnable
 
 from signals.nlp_signals import NLPQuerySignal
 from signals.insight_signals.poverty_insight_signals import InsightQuerySignal
+
 from signals.child_nlp_signals import ChildNLPSignals
+from signals.insight_signals.child_cases_insight_signals import ChildInsightQuerySignal
+from signals.mental_health_nlp_signals import MentalHealthNLPSignals
 
 from agents.nlp_recommendation_agent import NLPRecommendationAgent
 from agents.insight_generator_agent import InsightGeneratorAgent
@@ -26,9 +29,22 @@ class CoordinatorAgent(Runnable):
         out = self.insight_generator.invoke(sig)
         return out.insights
 
+    def get_child_cases_insights(self , district: str):
+        sig = ChildInsightQuerySignal(district=district)
+        out = self.insight_generator.child_case_invoke(sig)
+        return out.insights
+
     def invoke_child_cases(self, user_input: str):
         signal = ChildNLPSignals(preference=user_input)
         rec_signal = self.recommender.child_case_invoke(signal)
+
+        return {
+            "recommendations": rec_signal.districts
+        }
+
+    def invoke_mental_health(self, user_input: str):
+        signal = MentalHealthNLPSignals(preference=user_input)
+        rec_signal = self.recommender.mental_health_invoke(signal)
 
         return {
             "recommendations": rec_signal.districts

@@ -8,3 +8,5 @@ class ChildProtectionService:
     def get_child_case_recommendations(self, user_input: str):
         return self.coordinator.invoke_child_cases(user_input)
 
+    def get_child_insights(self, district: str):
+        return self.coordinator.get_child_cases_insights(district)
