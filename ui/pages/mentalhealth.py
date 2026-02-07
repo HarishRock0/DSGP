@@ -29,7 +29,7 @@ def get_cached_recommendations(text):
     return service.get_mental_health(text)
 
 # Streamlit UI
-st.title("🧠 Intelligent Region & Mental Health Recommendation System")
+st.title("Intelligent Region & Mental Health Recommendation System")
 st.write("Enter your preferences to get top 10 recommended regions and mental health insights.")
 
 user_input = st.text_input(

@@ -155,7 +155,7 @@ service = load_service()
 
 
 st.markdown("""
-## 🧠 Intelligent Region Recommendation Dashboard
+## Intelligent Region Recommendation Dashboard
 <span style="color:#94a3b8">
 NLP-driven recommendations with interactive poverty & demographic analytics
 </span>
@@ -344,7 +344,7 @@ if metrics:
 
     # -------- COL 1 : Metrics --------
     with col1:
-        st.subheader("📊 Population Stats")
+        st.subheader("Population Stats")
 
         st.markdown(f"""
         <div class="pop-card">
