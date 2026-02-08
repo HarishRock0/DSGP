@@ -4,8 +4,59 @@ import pandas as pd
 import numpy as np
 from langchain_community.llms import Ollama
 import warnings
+import torch
+from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+import sys
+
+# LlamaIndex imports for pandas query engine
+from llama_index.experimental.query_engine import PandasQueryEngine
+from llama_index.llms.ollama import Ollama as LlamaIndexOllama
+from llama_index.core import Settings
 
 warnings.filterwarnings('ignore')
+
+# P-column descriptions and answer scale
+COLUMN_DESCRIPTIONS = {
+    "p15": "Do you have difficulty seeing, even if wearing glasses?",
+    "p16": "Do you have difficulty hearing, even if using a hearing aid?",
+    "p17": "Do you have difficulty walking or climbing steps?",
+    "p18": "Do you have difficulty remembering or concentrating?",
+    "p19": "Do you have difficulty with self care?",
+    "p20": "Using your usual language, do you have difficulty communicating?",
+    "p21": "Do you attend any formal/informal education/training in previous 12 months?"
+}
+
+COLUMN_VALUE_SCALE = {
+    1: "No difficulties",
+    2: "Have minor difficulties",
+    3: "Have major difficulties",
+    4: "Cannot do anything"
+}
+
+# GPU Detection with detailed diagnostics
+print("\n" + "="*60)
+print("🔍 GPU Detection & Diagnostics")
+print("="*60)
+print(f"PyTorch Version: {torch.__version__}")
+print(f"CUDA Available: {torch.cuda.is_available()}")
+print(f"CUDA Built: {torch.version.cuda if torch.version.cuda else 'NO (CPU-only PyTorch)'}")
+
+if torch.cuda.is_available():
+    print(f"🎮 GPU detected: {torch.cuda.get_device_name(0)}")
+    print(f"📊 CUDA Version: {torch.version.cuda}")
+    print(f"🔢 GPU Count: {torch.cuda.device_count()}")
+    DEVICE = "cuda"
+    print("✅ Using GPU for inference")
+else:
+    print("💻 Running on CPU")
+    print("\n⚠️ GPU NOT detected. Common fixes:")
+    print("   1. Install PyTorch with CUDA support:")
+    print("      pip uninstall torch")
+    print("      pip install torch --index-url https://download.pytorch.org/whl/cu121")
+    print("   2. Update NVIDIA drivers: https://www.nvidia.com/Download/index.aspx")
+    print("   3. Verify CUDA installation: nvidia-smi")
+    DEVICE = "cpu"
+print("="*60 + "\n")
 
 
 class SkillDev:
@@ -33,14 +84,15 @@ class NLPClusterQueryEngine:
         print(f"🎯 Clusters: {self.skilldev_model.n_clusters}")
         
         # Initialize pretrained NLP models
-        print("\n🤖 Loading pretrained NLP models...")
+        print(f"\n🤖 Loading pretrained NLP models on {DEVICE.upper()}...")
         try:
             # Zero-shot classification for intent detection
             self.classifier = pipeline(
                 "zero-shot-classification",
-                model="facebook/bart-large-mnli"
+                model="facebook/bart-large-mnli",
+                device=0 if torch.cuda.is_available() else -1
             )
-            print("✅ Zero-shot classifier loaded")
+            print(f"✅ Zero-shot classifier loaded on {DEVICE.upper()}")
         except Exception as e:
             print(f"⚠️ Could not load zero-shot classifier: {e}")
             self.classifier = None
@@ -48,8 +100,8 @@ class NLPClusterQueryEngine:
         try:
             # Semantic similarity model
             self.tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-            self.model = AutoModelForSequenceClassification.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-            print("✅ Semantic model loaded")
+            self.model = AutoModelForSequenceClassification.from_pretrained("sentence-transformers/all-MiniLM-L6-v2").to(DEVICE)
+            print(f"✅ Semantic model loaded on {DEVICE.upper()}")
         except Exception as e:
             print(f"⚠️ Could not load semantic model: {e}")
             self.tokenizer = None
@@ -229,18 +281,19 @@ class NLPClusterQueryEngine:
 
 class LLMQueryEngine:
     """
-    LLM-powered database and cluster query engine using Ollama (free & local)
+    LLM-powered pandas query engine using LlamaIndex & Ollama (free & local)
     """
     
-    def __init__(self, model_path=None, df=None):
+    def __init__(self, model_path=None, df=None, csv_path="data/LFS-2023.csv"):
         """
-        Initialize the LLM Query Engine
+        Initialize the LLM Query Engine with LlamaIndex PandasQueryEngine
         
         Args:
             model_path: Path to a trained clustering model (optional)
             df: DataFrame to analyze (optional)
+            csv_path: Path to CSV file to load
         """
-        print("🤖 Initializing LLM Query Engine...")
+        print("🤖 Initializing LLM Query Engine with LlamaIndex + Pandas...")
         
         # Load data
         if df is not None:
@@ -250,41 +303,77 @@ class LLMQueryEngine:
             print(f"📂 Loading model from {model_path}")
             with open(model_path, 'rb') as f:
                 model = pickle.load(f)
-            self.df = model.df if hasattr(model, 'df') else df
+            self.df = model.df if hasattr(model, 'df') else None
             self.has_clusters = self.df is not None and 'cluster_id' in self.df.columns
+        elif os.path.exists(csv_path):
+            print(f"📂 Loading data from {csv_path}")
+            self.df = pd.read_csv(csv_path)
+            self.has_clusters = 'cluster_id' in self.df.columns
+            print(f"✅ Loaded {len(self.df)} records with {len(self.df.columns)} columns")
         else:
             self.df = None
             self.has_clusters = False
-            print("⚠️ No data loaded - using general query mode")
+            print("⚠️ No data loaded")
         
-        # Initialize Ollama LLM (local, free)
+        # Initialize LlamaIndex with Ollama
         try:
-            self.llm = Ollama(
-                model="llama3.2",
-                temperature=0.7
+            # Configure LlamaIndex to use Ollama (using smaller 1B model for low RAM systems)
+            Settings.llm = LlamaIndexOllama(
+                model="llama3.2:1b",  # 1B parameter model (~1.3 GB RAM)
+                request_timeout=120.0,
+                temperature=0.1
             )
-            # Test if Ollama is running
-            test_response = self.llm.invoke("test")
-            print("✅ LLM Query Engine ready! (Using Ollama - llama3.2)")
+            
+            # Create instruction prefix with P-column descriptions
+            instruction_str = """You are a data analyst. Answer questions about the dataset using pandas operations.
+
+IMPORTANT P-COLUMN DESCRIPTIONS:
+"""
+            for col, desc in COLUMN_DESCRIPTIONS.items():
+                instruction_str += f"- {col.upper()}: {desc}\n"
+            
+            instruction_str += "\nANSWER SCALE for P-columns (p15-p21):\n"
+            for val, label in COLUMN_VALUE_SCALE.items():
+                instruction_str += f"  {val} = {label}\n"
+            
+            instruction_str += """
+When filtering for people with difficulties:
+- Use df[df['p17'] > 1] for those WITH difficulties (minor, major, or cannot do)
+- Value 1 means NO difficulties
+- Values 2, 3, 4 mean they HAVE difficulties
+
+Return actual data, not code. Be concise."""
+            
+            # Initialize PandasQueryEngine if we have data
+            if self.df is not None:
+                self.query_engine = PandasQueryEngine(
+                    df=self.df,
+                    instruction_str=instruction_str,
+                    verbose=True,
+                    synthesize_response=True
+                )
+                print("✅ LlamaIndex PandasQueryEngine ready!")
+            else:
+                self.query_engine = None
+                print("⚠️ No query engine created - no data available")
+                
         except Exception as e:
-            print(f"⚠️ Ollama not available: {e}")
-            print("Please install and start Ollama first!")
-            print("Download from: https://ollama.ai")
-            print("Then run: ollama pull llama3.2")
-            self.llm = None
-        if self.df is not None:
-            print(f"📊 Loaded {len(self.df)} records")
-            if self.has_clusters:
-                n_clusters = self.df['cluster_id'].nunique()
-                print(f"🎯 Found {n_clusters} clusters")
+            print(f"⚠️ LlamaIndex/Ollama not available: {e}")
+            print("Please make sure Ollama is running: ollama serve")
+            print("And that llama3.2 model is installed: ollama pull llama3.2")
+            self.query_engine = None
+        
+        # Conversation context for follow-up questions
+        self.last_question = None
+        self.last_answer = None
     
-    def analyze_data(self, question: str, context_limit: int = 500):
+    
+    def analyze_data(self, question: str):
         """
-        Answer questions about the data using LLM with data context
+        Answer questions about the data using LlamaIndex PandasQueryEngine
         
         Args:
             question: User's question about the data
-            context_limit: Maximum number of rows to include in context
         
         Returns:
             LLM's answer as a string
@@ -292,30 +381,25 @@ class LLMQueryEngine:
         print(f"\n🔍 Processing question: {question}")
         
         if self.df is None:
-            return "⚠️ No data loaded. Please provide a dataset or model path."
+            return "⚠️ No data loaded. Please provide a dataset or CSV path."
         
-        if self.llm is None:
-            return "⚠️ Ollama not running. Please install and start Ollama, then run: ollama pull llama3.2"
-        
-        # Prepare data context (smaller for Ollama)
-        data_summary = self._prepare_data_context(min(context_limit, 200))
-        
-        # Create simplified prompt for Ollama
-        prompt_text = f"""You are a data analyst. Using this data summary, answer the question.
-
-Data Summary:
-{data_summary}
-
-Question: {question}
-
-Provide a clear, concise answer with specific numbers when possible:"""
+        if self.query_engine is None:
+            return "⚠️ Query engine not initialized. Please make sure Ollama is running: ollama serve"
         
         try:
-            # Get answer from Ollama
-            answer = self.llm.invoke(prompt_text)
-            return answer
+            # Query using LlamaIndex PandasQueryEngine
+            response = self.query_engine.query(question)
+            
+            # Store conversation context
+            self.last_question = question
+            self.last_answer = str(response)
+            
+            return str(response)
+            
         except Exception as e:
-            return f"⚠️ Error: {str(e)}\nMake sure Ollama is running: ollama serve"
+            error_msg = f"⚠️ Error processing query: {str(e)}"
+            print(error_msg)
+            return error_msg
     
     def _prepare_data_context(self, limit: int):
         """Prepare a concise summary of the data for LLM context"""
@@ -325,7 +409,23 @@ Provide a clear, concise answer with specific numbers when possible:"""
         context_parts.append(f"Dataset size: {len(self.df)} records")
         context_parts.append(f"Columns: {', '.join(self.df.columns.tolist())}")
         
-        # Statistical summary
+        # P-column descriptions for context
+        desc_lines = []
+        for col in self.df.columns:
+            # Case-insensitive check
+            for desc_col, desc_text in COLUMN_DESCRIPTIONS.items():
+                if col.lower() == desc_col.lower():
+                    desc_lines.append(f"{col}: {desc_text}")
+                    break
+        
+        if desc_lines:
+            context_parts.append("\n=== P-COLUMN DESCRIPTIONS ===")
+            context_parts.append("\n".join(desc_lines))
+            scale_text = ", ".join([f"{k}={v}" for k, v in COLUMN_VALUE_SCALE.items()])
+            context_parts.append(f"Answer scale for P-columns: {scale_text}")
+            context_parts.append("="*30)
+        
+        # Statistical summary for all numeric columns
         numeric_cols = self.df.select_dtypes(include=[np.number]).columns.tolist()
         if numeric_cols:
             stats = self.df[numeric_cols].describe().round(2)
@@ -368,14 +468,16 @@ Provide a clear, concise answer with specific numbers when possible:"""
         # Extract cluster-specific context
         cluster_context = self._get_cluster_analysis()
         
-        prompt_text = f"""You are a clustering expert. Analyze these clusters and answer the question.
+        prompt_text = f"""You are a clustering expert with direct access to cluster data. Analyze the clusters below and answer the question.
+
+IMPORTANT: Do NOT generate SQL queries. Provide direct analysis based on the data provided.
 
 Cluster Analysis:
 {cluster_context}
 
 Question: {question}
 
-Answer:"""
+Provide a direct answer with insights:"""
         
         try:
             answer = self.llm.invoke(prompt_text)
@@ -434,11 +536,13 @@ Answer:"""
         
         comparison = self._get_cluster_comparison(cluster_ids)
         
-        prompt_text = f"""Compare these data clusters and explain the key differences:
+        prompt_text = f"""You are a clustering analyst. Compare these data clusters and explain the key differences.
+
+IMPORTANT: Do NOT generate SQL queries. Provide direct comparison based on the statistics shown.
 
 {comparison}
 
-Provide a clear comparison:"""
+Provide a clear comparison with specific differences:"""
         
         try:
             answer = self.llm.invoke(prompt_text)
@@ -487,14 +591,16 @@ Provide a clear comparison:"""
         else:
             question = "What are the key insights and patterns in this dataset?"
         
-        prompt_text = f"""As a data scientist, analyze this data and provide insights.
+        prompt_text = f"""You are a data scientist analyzing this dataset. Provide insights based on the data provided.
+
+IMPORTANT: Do NOT generate SQL queries or code. Analyze the data summary and provide direct insights.
 
 Data:
 {data_context}
 
 Question: {question}
 
-Key insights:"""
+Key insights based on the data:"""
         
         try:
             answer = self.llm.invoke(prompt_text)
