@@ -317,9 +317,9 @@ class LLMQueryEngine:
         
         # Initialize LlamaIndex with Ollama
         try:
-            # Configure LlamaIndex to use Ollama (using smaller 1B model for low RAM systems)
+            # Configure LlamaIndex to use Ollama (using smaller 1B model for available RAM)
             Settings.llm = LlamaIndexOllama(
-                model="llama3.2:1b",  # 1B parameter model (~1.3 GB RAM)
+                model="llama3.2:1b",  # 1B parameter model (~2.4 GB RAM)
                 request_timeout=120.0,
                 temperature=0.1
             )
