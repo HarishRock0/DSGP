@@ -79,6 +79,11 @@ SECTOR_MAP = {
 }
 
 
+class SkillDev:
+    """Stub class to support unpickling SkillDev model instances"""
+    pass
+
+
 class LLMQueryEngine:
     """
     LLM-powered pandas query engine using LlamaIndex & Hugging Face API
