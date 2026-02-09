@@ -123,7 +123,7 @@ class LLMQueryEngine:
         # Initialize LlamaIndex with Hugging Face Inference API (ONLINE)
         try:
             # Get Hugging Face token from environment variable (REQUIRED)
-            hf_token = os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
+            hf_token = (os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HUGGINGFACE_API_KEY") or "").strip()
             if not hf_token:
                 raise ValueError(
                     "❌ Hugging Face token not found!\n"
@@ -131,12 +131,12 @@ class LLMQueryEngine:
                     "   Get token from: https://huggingface.co/settings/tokens"
                 )
             
-            # Use Hugging Face Inference API with DeepSeek-R1 model (ONLINE - no local download)
+            # Use Hugging Face Inference API with Falcon-7B model (ONLINE - FREE)
             Settings.llm = HuggingFaceInferenceAPI(
-                model_name="deepseek-ai/DeepSeek-R1",
+                model_name="tiiuae/falcon-7b-instruct",
                 token=hf_token,
-                context_window=8192,
-                num_output=1024,
+                context_window=2048,
+                num_output=512,
                 temperature=0.1
             )
             
@@ -203,7 +203,7 @@ Return actual data and clear insights. Be specific and concise."""
                     synthesize_response=True
                 )
                 print("✅ LlamaIndex PandasQueryEngine ready with Hugging Face API!")
-            print("📌 Using model: deepseek-ai/DeepSeek-R1 (ONLINE - Inference API)")
+            print("📌 Using model: tiiuae/falcon-7b-instruct (FREE)")
             print("🌐 All queries will be processed via Hugging Face API")
         except ImportError as ie:
             print(f"⚠️ Hugging Face API integration not installed: {ie}")
@@ -213,10 +213,10 @@ Return actual data and clear insights. Be specific and concise."""
             print(f"⚠️ Hugging Face API error: {e}")
             print("Please check:")
             print("  1. Your Hugging Face token is valid (get from https://huggingface.co/settings/tokens)")
-            print("  2. You have access to deepseek-ai/DeepSeek-R1 model")
+            print("  2. You have access to tiiuae/falcon-7b-instruct model")
             print("  3. Your internet connection is working")
             print("  4. Token has 'inference' permission enabled")
-            print("\n💡 Visit model page: https://huggingface.co/deepseek-ai/DeepSeek-R1")
+            print("\n💡 Visit model page: https://huggingface.co/tiiuae/falcon-7b-instruct")
             self.query_engine = None
         
         # Conversation context for follow-up questions
@@ -297,7 +297,7 @@ if __name__ == "__main__":
     
     # Interactive query loop
     print("\n" + "=" * 70)
-    print("💬 LLM Query Engine - DeepSeek-R1 via Hugging Face API")
+    print("💬 LLM Query Engine - Falcon-7B via Hugging Face API (FREE)")
     print("=" * 70)
     print("Ask questions about your LFS-2023 data!")
     print("Examples:")

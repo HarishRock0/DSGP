@@ -5,6 +5,14 @@ AI-powered analysis of Sri Lanka's Labor Force Survey 2023 data using DeepSeek-R
 
 ---
 
+## ⚠️ IMPORTANT: Security Notice
+
+**Your Hugging Face token was exposed on GitHub and needs to be regenerated!**
+
+📖 **See [SETUP_GUIDE.md](SETUP_GUIDE.md) for complete step-by-step instructions**
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
@@ -12,17 +20,36 @@ AI-powered analysis of Sri Lanka's Labor Force Survey 2023 data using DeepSeek-R
 pip install -r requirement.txt
 ```
 
-### 2. Set Up Hugging Face API Token
-Get your token from: https://huggingface.co/settings/tokens
+### 2. Regenerate Your Hugging Face Token (REQUIRED)
+Your old token was compromised. Follow these steps:
 
-**Windows (PowerShell):**
+1. Go to: https://huggingface.co/settings/tokens
+2. Create a **new token** with "Read" permission
+3. Copy the new token
+
+### 3. Set Up Environment Variable
+
+**Option A - Quick Test (PowerShell):**
 ```powershell
-setx HUGGINGFACE_TOKEN "your_token_here"
+$env:HUGGINGFACE_TOKEN = "hf_YOUR_TOKEN_HERE"
+python3.10 NLP/NLP.py --model model/skilldev_model.pkl
 ```
 
-Then **restart your terminal**.
+**Option B - Permanent (Recommended):**
 
-### 3. Run the NLP Query Engine
+Edit `run_nlp.bat` and uncomment this line with your new token:
+```bat
+set HUGGINGFACE_TOKEN=hf_YOUR_NEW_TOKEN_HERE
+```
+
+Then run:
+```cmd
+run_nlp.bat
+```
+
+See **[SETUP_GUIDE.md](SETUP_GUIDE.md)** for detailed instructions.
+
+### 4. Run the NLP Query Engine
 ```bash
 python NLP/NLP.py
 ```
