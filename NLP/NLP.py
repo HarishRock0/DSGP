@@ -2,7 +2,6 @@ import os
 import pickle
 import pandas as pd
 import numpy as np
-from langchain_community.llms import Ollama
 import warnings
 import torch
 from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
@@ -10,7 +9,7 @@ import sys
 
 # LlamaIndex imports for pandas query engine
 from llama_index.experimental.query_engine import PandasQueryEngine
-from llama_index.llms.ollama import Ollama as LlamaIndexOllama
+from llama_index.llms.huggingface_api import HuggingFaceInferenceAPI
 from llama_index.core import Settings
 
 warnings.filterwarnings('ignore')
@@ -361,12 +360,23 @@ class LLMQueryEngine:
             self.has_clusters = False
             print("⚠️ No data loaded")
         
-        # Initialize LlamaIndex with Ollama
+        # Initialize LlamaIndex with Hugging Face Inference API (ONLINE)
         try:
-            # Configure LlamaIndex to use Ollama (using smaller 1B model for available RAM)
-            Settings.llm = LlamaIndexOllama(
-                model="llama3.2:1b",  # 1B parameter model (~2.4 GB RAM)
-                request_timeout=120.0,
+            # Get Hugging Face token from environment variable (REQUIRED)
+            hf_token = os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
+            if not hf_token:
+                raise ValueError(
+                    "❌ Hugging Face token not found!\n"
+                    "   Set environment variable: HUGGINGFACE_TOKEN\n"
+                    "   Get token from: https://huggingface.co/settings/tokens"
+                )
+            
+            # Use Hugging Face Inference API with DeepSeek-R1 model (ONLINE - no local download)
+            Settings.llm = HuggingFaceInferenceAPI(
+                model_name="deepseek-ai/DeepSeek-R1",
+                token=hf_token,
+                context_window=8192,
+                num_output=1024,
                 temperature=0.1
             )
             
@@ -432,15 +442,21 @@ Return actual data and clear insights. Be specific and concise."""
                     verbose=True,
                     synthesize_response=True
                 )
-                print("✅ LlamaIndex PandasQueryEngine ready!")
-            else:
-                self.query_engine = None
-                print("⚠️ No query engine created - no data available")
-                
+                print("✅ LlamaIndex PandasQueryEngine ready with Hugging Face API!")
+            print("📌 Using model: deepseek-ai/DeepSeek-R1 (ONLINE - Inference API)")
+            print("🌐 All queries will be processed via Hugging Face API")
+        except ImportError as ie:
+            print(f"⚠️ Hugging Face API integration not installed: {ie}")
+            print("📦 Install with: pip install llama-index-llms-huggingface-api")
+            self.query_engine = None
         except Exception as e:
-            print(f"⚠️ LlamaIndex/Ollama not available: {e}")
-            print("Please make sure Ollama is running: ollama serve")
-            print("And that llama3.2 model is installed: ollama pull llama3.2")
+            print(f"⚠️ Hugging Face API error: {e}")
+            print("Please check:")
+            print("  1. Your Hugging Face token is valid (get from https://huggingface.co/settings/tokens)")
+            print("  2. You have access to deepseek-ai/DeepSeek-R1 model")
+            print("  3. Your internet connection is working")
+            print("  4. Token has 'inference' permission enabled")
+            print("\n💡 Visit model page: https://huggingface.co/deepseek-ai/DeepSeek-R1")
             self.query_engine = None
         
         # Conversation context for follow-up questions
@@ -464,7 +480,7 @@ Return actual data and clear insights. Be specific and concise."""
             return "⚠️ No data loaded. Please provide a dataset or CSV path."
         
         if self.query_engine is None:
-            return "⚠️ Query engine not initialized. Please make sure Ollama is running: ollama serve"
+            return "⚠️ Query engine not initialized. Please check your Hugging Face API configuration and internet connection."
         
         try:
             # Query using LlamaIndex PandasQueryEngine
