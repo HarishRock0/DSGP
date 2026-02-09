@@ -3,11 +3,7 @@ import pickle
 import pandas as pd
 import numpy as np
 import warnings
-import torch
-from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
-import sys
 
-# LlamaIndex imports for pandas query engine
 from llama_index.experimental.query_engine import PandasQueryEngine
 from llama_index.llms.huggingface_api import HuggingFaceInferenceAPI
 from llama_index.core import Settings
@@ -82,251 +78,10 @@ SECTOR_MAP = {
     3: "Estate"
 }
 
-# GPU Detection with detailed diagnostics
-print("\n" + "="*60)
-print("🔍 GPU Detection & Diagnostics")
-print("="*60)
-print(f"PyTorch Version: {torch.__version__}")
-print(f"CUDA Available: {torch.cuda.is_available()}")
-print(f"CUDA Built: {torch.version.cuda if torch.version.cuda else 'NO (CPU-only PyTorch)'}")
-
-if torch.cuda.is_available():
-    print(f"🎮 GPU detected: {torch.cuda.get_device_name(0)}")
-    print(f"📊 CUDA Version: {torch.version.cuda}")
-    print(f"🔢 GPU Count: {torch.cuda.device_count()}")
-    DEVICE = "cuda"
-    print("✅ Using GPU for inference")
-else:
-    print("💻 Running on CPU")
-    print("\n⚠️ GPU NOT detected. Common fixes:")
-    print("   1. Install PyTorch with CUDA support:")
-    print("      pip uninstall torch")
-    print("      pip install torch --index-url https://download.pytorch.org/whl/cu121")
-    print("   2. Update NVIDIA drivers: https://www.nvidia.com/Download/index.aspx")
-    print("   3. Verify CUDA installation: nvidia-smi")
-    DEVICE = "cpu"
-print("="*60 + "\n")
-
-
-class SkillDev:
-    """Minimal stub to support unpickling SkillDev instances."""
-    pass
-
-class NLPClusterQueryEngine:
-    """
-    NLP-based query engine that uses pretrained models to understand requests
-    and access cluster data from the trained SkillDev model
-    """
-    
-    def __init__(self, model_path):
-        """Load the trained SkillDev model"""
-        print("🔄 Loading trained clustering model...")
-        with open(model_path, 'rb') as f:
-            self.skilldev_model = pickle.load(f)
-        
-        self.df = self.skilldev_model.df
-        self.kmeans = self.skilldev_model.kmeans
-        self.features = self.skilldev_model.features
-        
-        print("✅ Model loaded successfully!")
-
-        # Initialize pretrained NLP models
-        print(f"\n🤖 Loading pretrained NLP models on {DEVICE.upper()}...")
-        try:
-            self.classifier = pipeline(
-                "zero-shot-classification",
-                model="facebook/bart-large-mnli",
-                device=0 if torch.cuda.is_available() else -1
-            )
-            print(f"✅ Zero-shot classifier loaded on {DEVICE.upper()}")
-        except Exception as e:
-            print(f"⚠️ Could not load zero-shot classifier: {e}")
-            self.classifier = None
-
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-            self.model = AutoModelForSequenceClassification.from_pretrained("sentence-transformers/all-MiniLM-L6-v2").to(DEVICE)
-            print(f"✅ Semantic model loaded on {DEVICE.upper()}")
-        except Exception as e:
-            print(f"⚠️ Could not load semantic model: {e}")
-            self.tokenizer = None
-            self.model = None
-    
-    def understand_query(self, query):
-        """Use NLP to understand user query and extract intent"""
-        print(f"\n🔍 Analyzing query: '{query}'")
-        
-        if not self.classifier:
-            print("⚠️ Classifier not available, using keyword matching")
-            return self._keyword_intent(query)
-        
-        # Possible intents
-        intents = [
-            "find records in a specific cluster",
-            "compare clusters",
-            "analyze demographic patterns",
-            "identify outliers",
-            "get cluster statistics"
-        ]
-        
-        try:
-            result = self.classifier(query, intents, multi_class=False)
-            top_intent = result['labels'][0]
-            confidence = result['scores'][0]
-            
-            print(f"📌 Detected Intent: {top_intent}")
-            print(f"💯 Confidence: {confidence:.2%}")
-            
-            return {
-                'intent': top_intent,
-                'confidence': confidence,
-                'query': query
-            }
-        except Exception as e:
-            print(f"⚠️ Intent detection failed: {e}")
-            return self._keyword_intent(query)
-    
-    def _keyword_intent(self, query):
-        """Fallback keyword-based intent detection"""
-        query_lower = query.lower()
-        
-        if any(kw in query_lower for kw in ['cluster', 'group', 'segment']):
-            intent = "find records in a specific cluster"
-        elif any(kw in query_lower for kw in ['compare', 'difference', 'vs']):
-            intent = "compare clusters"
-        elif any(kw in query_lower for kw in ['pattern', 'analyze', 'demographic']):
-            intent = "analyze demographic patterns"
-        elif any(kw in query_lower for kw in ['outlier', 'extreme', 'unusual']):
-            intent = "identify outliers"
-        else:
-            intent = "get cluster statistics"
-        
-        return {
-            'intent': intent,
-            'confidence': 0.5,
-            'query': query
-        }
-    
-    def query_clusters(self, query):
-        """Execute query against the cluster data"""
-        intent_result = self.understand_query(query)
-        intent = intent_result['intent']
-        
-        print(f"\n⚙️ Executing query...")
-        
-        if "specific cluster" in intent:
-            return self._get_cluster_records(query)
-        elif "compare" in intent:
-            return self._compare_clusters()
-        elif "pattern" in intent:
-            return self._analyze_patterns(query)
-        elif "outlier" in intent:
-            return self._find_outliers()
-        else:
-            return self._get_cluster_stats()
-    
-    def _get_cluster_records(self, query):
-        """Get records from a specific cluster"""
-        print("\n📋 Cluster Records:")
-        
-        # Extract cluster number from query if possible
-        import re
-        cluster_nums = re.findall(r'\d+', query)
-        
-        if cluster_nums:
-            cluster_id = int(cluster_nums[0]) % self.skilldev_model.n_clusters
-        else:
-            cluster_id = 0
-        
-        cluster_data = self.df[self.df['cluster_id'] == cluster_id]
-        
-        print(f"Cluster {cluster_id}: {len(cluster_data)} records")
-        print(cluster_data[self.features[:5]].head(10))
-        
-        return cluster_data
-    
-    def _compare_clusters(self):
-        """Compare statistics across clusters"""
-        print("\n📊 Cluster Comparison:")
-        
-        for cluster_id in range(self.skilldev_model.n_clusters):
-            cluster_data = self.df[self.df['cluster_id'] == cluster_id]
-            print(f"\nCluster {cluster_id}:")
-            print(f"  Records: {len(cluster_data)}")
-            print(f"  Mean values: {cluster_data[self.features[:3]].mean().round(2).to_dict()}")
-    
-    def _analyze_patterns(self, query):
-        """Analyze demographic patterns in clusters"""
-        print("\n🔬 Pattern Analysis:")
-        
-        # Show variance across clusters for each feature
-        for feature in self.features[:5]:
-            cluster_means = self.df.groupby('cluster_id')[feature].mean()
-            print(f"\n{feature}:")
-            print(cluster_means.round(2))
-        
-        return self.df.groupby('cluster_id')[self.features[:5]].mean()
-    
-    def _find_outliers(self):
-        """Identify outlier records"""
-        print("\n⚠️ Outlier Detection:")  
-        
-        from sklearn.preprocessing import StandardScaler
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(self.df[self.features])
-        
-        # Records with extreme values (|z-score| > 3)
-        outliers = np.where((np.abs(X_scaled) > 3).any(axis=1))[0]
-        
-        print(f"Found {len(outliers)} outlier records")
-        if len(outliers) > 0:
-            print(self.df.iloc[outliers[:10]][self.features[:5]])
-        
-        return self.df.iloc[outliers]
-    
-    def _get_cluster_stats(self):
-        """Get comprehensive cluster statistics"""
-        print("\n📈 Cluster Statistics:")
-        
-        stats = {
-            'Total Records': len(self.df),
-            'Clusters': self.skilldev_model.n_clusters,
-            'Distribution': self.df['cluster_id'].value_counts().to_dict()
-        }
-        
-        for key, value in stats.items():
-            print(f"{key}: {value}")
-        
-        return stats
-    
-    def interactive_query(self):
-        """Interactive query loop"""
-        print("\n" + "="*60)
-        print("💬 NLP Cluster Query Engine - Interactive Mode")
-        print("="*60)
-        print("Ask questions about your cluster data!")
-        print("Examples:")
-        print("  - 'Show records in cluster 0'")
-        print("  - 'Compare all clusters'")
-        print("  - 'What patterns exist in the data?'")
-        print("  - 'Find outlier records'")
-        print("  - 'Cluster statistics'")
-        print("Type 'quit' to exit\n")
-        
-        while True:
-            query = input("📝 Your query: ").strip()
-            
-            if query.lower() == 'quit':
-                print("✅ Goodbye!")
-                break
-            
-            if query:
-                self.query_clusters(query)
-
 
 class LLMQueryEngine:
     """
-    LLM-powered pandas query engine using LlamaIndex & Ollama (free & local)
+    LLM-powered pandas query engine using LlamaIndex & Hugging Face API
     """
     
     def __init__(self, model_path=None, df=None, csv_path="data/LFS-2023.csv"):
@@ -496,286 +251,67 @@ Return actual data and clear insights. Be specific and concise."""
             error_msg = f"⚠️ Error processing query: {str(e)}"
             print(error_msg)
             return error_msg
-    
-    def _prepare_data_context(self, limit: int):
-        """Prepare a concise summary of the data for LLM context"""
-        context_parts = []
-        
-        # Basic info
-        context_parts.append(f"Dataset size: {len(self.df)} records")
-        context_parts.append(f"Columns: {', '.join(self.df.columns.tolist())}")
-        
-        # P-column descriptions for context
-        desc_lines = []
-        for col in self.df.columns:
-            # Case-insensitive check
-            for desc_col, desc_text in COLUMN_DESCRIPTIONS.items():
-                if col.lower() == desc_col.lower():
-                    desc_lines.append(f"{col}: {desc_text}")
-                    break
-        
-        if desc_lines:
-            context_parts.append("\n=== P-COLUMN DESCRIPTIONS ===")
-            context_parts.append("\n".join(desc_lines))
-            scale_text = ", ".join([f"{k}={v}" for k, v in COLUMN_VALUE_SCALE.items()])
-            context_parts.append(f"Answer scale for P-columns: {scale_text}")
-            context_parts.append("="*30)
-        
-        # Statistical summary for all numeric columns
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns.tolist()
-        if numeric_cols:
-            stats = self.df[numeric_cols].describe().round(2)
-            context_parts.append(f"\nNumeric column statistics:\n{stats.to_string()}")
-        
-        # Cluster information if available
-        if self.has_clusters:
-            cluster_dist = self.df['cluster_id'].value_counts().sort_index()
-            context_parts.append(f"\nCluster distribution:\n{cluster_dist.to_string()}")
-            
-            # Cluster characteristics
-            for cluster_id in sorted(self.df['cluster_id'].unique()):
-                cluster_data = self.df[self.df['cluster_id'] == cluster_id]
-                if numeric_cols:
-                    means = cluster_data[numeric_cols[:5]].mean().round(2)  # Top 5 features
-                    context_parts.append(f"\nCluster {cluster_id} average values:\n{means.to_string()}")
-        
-        # Sample data
-        sample_size = min(10, limit)
-        context_parts.append(f"\nSample data (first {sample_size} rows):\n{self.df.head(sample_size).to_string()}")
-        
-        return "\n\n".join(context_parts)
-    
-    def ask_about_clusters(self, question: str):
-        """
-        Specifically answer questions about clusters
-        
-        Args:
-            question: Question about clusters
-        
-        Returns:
-            Answer with cluster analysis
-        """
-        if not self.has_clusters:
-            return "⚠️ No cluster information available in the dataset."
-        
-        if self.llm is None:
-            return "⚠️ Ollama not running. Please start Ollama."
-        
-        # Extract cluster-specific context
-        cluster_context = self._get_cluster_analysis()
-        
-        prompt_text = f"""You are a clustering expert with direct access to cluster data. Analyze the clusters below and answer the question.
-
-IMPORTANT: Do NOT generate SQL queries. Provide direct analysis based on the data provided.
-
-Cluster Analysis:
-{cluster_context}
-
-Question: {question}
-
-Provide a direct answer with insights:"""
-        
-        try:
-            answer = self.llm.invoke(prompt_text)
-            return answer
-        except Exception as e:
-            return f"⚠️ Error: {str(e)}"
-    
-    def _get_cluster_analysis(self):
-        """Generate detailed cluster analysis"""
-        analysis_parts = []
-        
-        n_clusters = self.df['cluster_id'].nunique()
-        analysis_parts.append(f"Total clusters: {n_clusters}")
-        
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns.tolist()
-        if 'cluster_id' in numeric_cols:
-            numeric_cols.remove('cluster_id')
-        
-        for cluster_id in sorted(self.df['cluster_id'].unique()):
-            cluster_data = self.df[self.df['cluster_id'] == cluster_id]
-            
-            parts = [f"\n--- Cluster {cluster_id} ---"]
-            parts.append(f"Size: {len(cluster_data)} records ({len(cluster_data)/len(self.df)*100:.1f}%)")
-            
-            if numeric_cols:
-                # Statistics for this cluster
-                means = cluster_data[numeric_cols].mean()
-                stds = cluster_data[numeric_cols].std()
-                
-                parts.append("\nAverage values:")
-                for col in numeric_cols[:8]:  # Top 8 features
-                    parts.append(f"  {col}: {means[col]:.2f} (±{stds[col]:.2f})")
-            
-            analysis_parts.append("\n".join(parts))
-        
-        return "\n".join(analysis_parts)
-    
-    def compare_clusters(self, cluster_ids: list = None):
-        """
-        Compare specific clusters or all clusters
-        
-        Args:
-            cluster_ids: List of cluster IDs to compare, or None for all clusters
-        
-        Returns:
-            Comparison analysis
-        """
-        if not self.has_clusters:
-            return "⚠️ No cluster information available."
-        
-        if self.llm is None:
-            return "⚠️ Ollama not running."
-        
-        if cluster_ids is None:
-            cluster_ids = sorted(self.df['cluster_id'].unique())
-        
-        comparison = self._get_cluster_comparison(cluster_ids)
-        
-        prompt_text = f"""You are a clustering analyst. Compare these data clusters and explain the key differences.
-
-IMPORTANT: Do NOT generate SQL queries. Provide direct comparison based on the statistics shown.
-
-{comparison}
-
-Provide a clear comparison with specific differences:"""
-        
-        try:
-            answer = self.llm.invoke(prompt_text)
-            return answer
-        except Exception as e:
-            return f"⚠️ Error: {str(e)}"
-    
-    def _get_cluster_comparison(self, cluster_ids):
-        """Generate cluster comparison data"""
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns.tolist()
-        if 'cluster_id' in numeric_cols:
-            numeric_cols.remove('cluster_id')
-        
-        comparison_data = []
-        
-        for cluster_id in cluster_ids:
-            cluster_data = self.df[self.df['cluster_id'] == cluster_id]
-            
-            if numeric_cols:
-                means = cluster_data[numeric_cols].mean().round(2)
-                comparison_data.append(f"\nCluster {cluster_id} ({len(cluster_data)} records):")
-                comparison_data.append(means.to_string())
-        
-        return "\n".join(comparison_data)
-    
-    def get_insights(self, topic: str = None):
-        """
-        Get general insights about the data
-        
-        Args:
-            topic: Specific topic to focus on (optional)
-        
-        Returns:
-            Data insights
-        """
-        if self.df is None:
-            return "⚠️ No data loaded."
-        
-        if self.llm is None:
-            return "⚠️ Ollama not running."
-        
-        data_context = self._prepare_data_context(100)
-        
-        if topic:
-            question = f"What insights can you provide about {topic} in this dataset?"
-        else:
-            question = "What are the key insights and patterns in this dataset?"
-        
-        prompt_text = f"""You are a data scientist analyzing this dataset. Provide insights based on the data provided.
-
-IMPORTANT: Do NOT generate SQL queries or code. Analyze the data summary and provide direct insights.
-
-Data:
-{data_context}
-
-Question: {question}
-
-Key insights based on the data:"""
-        
-        try:
-            answer = self.llm.invoke(prompt_text)
-            return answer
-        except Exception as e:
-            return f"⚠️ Error: {str(e)}"
 
 
 # Main execution
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description='NLP Query Engine for Cluster Analysis')
-    parser.add_argument('--mode', choices=['classic', 'llm'], default='llm',
-                        help='Query mode: classic (rule-based) or llm (AI-powered)')
+    parser = argparse.ArgumentParser(description='LLM Query Engine for LFS-2023 Data Analysis')
     parser.add_argument('--model', type=str, help='Path to model pickle file')
+    parser.add_argument('--csv', type=str, default='data/LFS-2023.csv', help='Path to CSV file')
     
     args = parser.parse_args()
     
-    # Load model
+    # Determine data source
     if args.model:
         model_path = args.model
+        csv_path = None
     else:
-        model_path = os.path.join('..', 'model', 'skilldev_model.pkl')
-    
-    candidate_paths = [
-        model_path,
-        os.path.join('..', 'model', 'skilldev_model.pkl'),
-        os.path.join('model', 'skilldev_model.pkl'),
-    ]
-    
-    valid_path = None
-    for path in candidate_paths:
-        if os.path.exists(path):
-            valid_path = path
-            break
-    
-    if not valid_path:
-        print("❌ Model not found!")
-        exit(1)
-    
-    print(f"✅ Using model from: {valid_path}\n")
+        # Try to find model file
+        candidate_paths = [
+            os.path.join('..', 'model', 'skilldev_model.pkl'),
+            os.path.join('model', 'skilldev_model.pkl'),
+        ]
+        
+        model_path = None
+        for path in candidate_paths:
+            if os.path.exists(path):
+                model_path = path
+                break
+        
+        csv_path = args.csv
     
     # Initialize engine
-    if args.mode == 'classic':
-        engine = NLPClusterQueryEngine(valid_path)
-        engine.interactive_query()
+    if model_path:
+        print(f"✅ Using model from: {model_path}\n")
+        engine = LLMQueryEngine(model_path=model_path)
     else:
-        engine = LLMQueryEngine(model_path=valid_path)
-        print("\n" + "=" * 70)
-        print("💬 LLM Query Interface")
-        print("=" * 70)
-        print("Commands: /clusters, /compare, /insights [topic], quit\n")
+        print(f"✅ Using CSV from: {csv_path}\n")
+        engine = LLMQueryEngine(csv_path=csv_path)
+    
+    # Interactive query loop
+    print("\n" + "=" * 70)
+    print("💬 LLM Query Engine - DeepSeek-R1 via Hugging Face API")
+    print("=" * 70)
+    print("Ask questions about your LFS-2023 data!")
+    print("Examples:")
+    print("  - How many people have vision difficulties?")
+    print("  - What is the average income by district?")
+    print("  - Compare employment rates by gender")
+    if engine.has_clusters:
+        print("  - What are the characteristics of each cluster?")
+    print("\nType 'quit' or 'exit' to stop\n")
+    
+    while True:
+        query = input("📝 Your query: ").strip()
         
-        while True:
-            query = input("📝 Your query: ").strip()
-            
-            if query.lower() in ['quit', 'exit']:
-                print("✅ Goodbye!")
-                break
-            
-            if not query:
-                continue
-            
-            if query.startswith('/'):
-                cmd_parts = query.split(' ', 1)
-                cmd = cmd_parts[0].lower()
-                cmd_arg = cmd_parts[1] if len(cmd_parts) > 1 else None
-                
-                if cmd == '/clusters':
-                    question = cmd_arg or "What can you tell me about the clusters?"
-                    print(engine.ask_about_clusters(question))
-                elif cmd == '/compare':
-                    print(engine.compare_clusters())
-                elif cmd == '/insights':
-                    print(engine.get_insights(cmd_arg))
-                else:
-                    print("⚠️ Unknown command")
-            else:
-                print(engine.analyze_data(query))
-            
-            print()
+        if query.lower() in ['quit', 'exit']:
+            print("✅ Goodbye!")
+            break
+        
+        if not query:
+            continue
+        
+        response = engine.analyze_data(query)
+        print(f"\n{response}\n")
