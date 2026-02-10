@@ -328,6 +328,41 @@ COLUMN MEANINGS (for reference):
             
             final_prompt += """
 
+VALUE MAPPINGS (use these to translate codes in your responses):
+
+SECTOR (Sec):
+  1 = Urban
+  2 = Rural
+  3 = Estate
+
+EMPLOYMENT STATUS (C19Mstatus):
+  1 = Public
+  2 = Private
+  3 = Employer
+  4 = Self-employed
+  5 = Family worker
+
+GENDER (Sex):
+  1 = Male
+  2 = Female
+
+DIFFICULTY LEVELS (for all difficulty-related columns like C29a, C29b, C29c, C29d, C29e, C29f):
+  1 = No difficulty
+  2 = Some difficulty
+  3 = A lot of difficulty
+  4 = Cannot do at all
+
+MARITAL STATUS (C5):
+  1 = Never married
+  2 = Married
+  3 = Widowed
+  4 = Divorced
+  5 = Separated
+
+IMPORTANT: When showing data in your response, always translate these codes to their meanings.
+Example: Instead of "Sector: 1", write "Sector: 1 (Urban)"
+         Instead of "Employment: 2", write "Employment: 2 (Private)"
+
 CRITICAL INSTRUCTIONS:
 1. Analyze the actual data provided below
 2. Calculate statistics from the sample and summary statistics
