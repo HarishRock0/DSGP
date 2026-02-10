@@ -330,38 +330,165 @@ COLUMN MEANINGS (for reference):
 
 VALUE MAPPINGS (use these to translate codes in your responses):
 
-SECTOR (Sec):
+=== ADMINISTRATIVE & IDENTIFICATION ===
+SECTOR:
   1 = Urban
   2 = Rural
   3 = Estate
 
-EMPLOYMENT STATUS (C19Mstatus):
-  1 = Public
-  2 = Private
-  3 = Employer
-  4 = Self-employed
-  5 = Family worker
+DISTRICT:
+  11 = Colombo
+  12 = Gampaha
+  13 = Kalutara
+  21 = Kandy
+  22 = Matale
+  23 = Nuwara Eliya
+  31 = Galle
+  32 = Matara
+  33 = Hambantota
+  41 = Jaffna
+  42 = Kilinochchi
+  43 = Mannar
+  44 = Vavuniya
+  45 = Mullaitivu
+  51 = Batticaloa
+  52 = Ampara
+  53 = Trincomalee
+  61 = Kurunegala
+  62 = Puttalam
+  71 = Anuradhapura
+  72 = Polonnaruwa
+  81 = Badulla
+  82 = Monaragala
+  91 = Ratnapura
+  92 = Kegalle
 
-GENDER (Sex):
+=== PERSONAL CHARACTERISTICS ===
+RSHIP (Relationship to Head):
+  1 = Head
+  2 = Spouse
+  3 = Child
+  4 = Parent
+  5 = Other relative
+  6 = Non-relative
+
+SEX (Gender):
   1 = Male
   2 = Female
 
-DIFFICULTY LEVELS (for all difficulty-related columns like C29a, C29b, C29c, C29d, C29e, C29f):
-  1 = No difficulty
-  2 = Some difficulty
-  3 = A lot of difficulty
-  4 = Cannot do at all
+ETH (Ethnicity):
+  1 = Sinhala
+  2 = SL Tamil
+  3 = Indian Tamil
+  4 = Moor
+  5 = Malay
+  6 = Burgher
+  9 = Other
 
-MARITAL STATUS (C5):
+REL (Religion):
+  1 = Buddhist
+  2 = Hindu
+  3 = Islam
+  4 = Roman Catholic
+  5 = Other Christian
+  9 = Other
+
+MARITAL (Marital Status):
   1 = Never married
   2 = Married
   3 = Widowed
   4 = Divorced
   5 = Separated
 
+EDU (Education Attainment):
+  00 = No schooling
+  01 = Grade 1
+  05 = Grade 5
+  11 = O/L (Ordinary Level)
+  12 = Passed O/L
+  13 = A/L (Advanced Level)
+  14 = Passed A/L
+  15 = Degree
+  16 = Postgraduate
+  19 = No schooling
+
+CUEDU (Currently in Education):
+  1 = Yes (currently studying)
+  2 = No
+
+SIN/TAMIL/ENG (Language Literacy):
+  1 = Can read and write
+  2 = Cannot read and write
+
+=== DISABILITY/DIFFICULTY (P15-P21) ===
+P15 (Vision), P16 (Hearing), P17 (Walking), P18 (Remembering), P19 (Self-care), P20 (Communication):
+  1 = No difficulty
+  2 = Some difficulty
+  3 = A lot of difficulty
+  4 = Cannot do at all
+
+=== EMPLOYMENT & ACTIVITY ===
+Q2 (Work Activity - Last 7 Days):
+  1 = Yes (worked for pay/profit)
+  2 = No
+
+Q16 (Employment Status):
+  1 = Employee (public/private)
+  2 = Employer
+  3 = Own account worker (self-employed)
+  4 = Contributing family worker
+
+Q36 (Job Search):
+  1 = Yes (looked for work)
+  2 = No
+
+Q43 (Availability):
+  1 = Yes (available to start work)
+  2 = No
+
+Q45_A_1 (Informal Sector - Organization Registered):
+  1 = Yes (formal)
+  2 = No (informal)
+
+Q46 (EPF/ETF Benefits):
+  1 = Yes (has benefits - formal employment)
+  2 = No (no benefits - informal employment)
+
+Q47 (Workplace Formality):
+  1 = Formal (registered, keeps accounts)
+  2 = Informal (not registered)
+
+Q63_A (Computer/Laptop Skills):
+  1 = Can use
+  2 = Cannot use
+
+Q63_B (Smartphone/Tablet Skills):
+  1 = Can use
+  2 = Cannot use
+
+Q64 (Internet Use - Last 12 months):
+  1 = Yes
+  2 = No
+
+=== KEY INCOME & POVERTY INDICATORS ===
+Q8 / Q45_A_1: Monthly Income/Salary (in LKR - Sri Lankan Rupees)
+Q20: Hours worked per week (underemployment if < 40 hours)
+
+=== DISTRICTS LOOKUP (for geographical targeting) ===
+Western Province: 11=Colombo, 12=Gampaha, 13=Kalutara
+Central Province: 21=Kandy, 22=Matale, 23=Nuwara Eliya
+Southern Province: 31=Galle, 32=Matara, 33=Hambantota
+Northern Province: 41=Jaffna, 42=Kilinochchi, 43=Mannar, 44=Vavuniya, 45=Mullaitivu
+Eastern Province: 51=Batticaloa, 52=Ampara, 53=Trincomalee
+North Western Province: 61=Kurunegala, 62=Puttalam
+North Central Province: 71=Anuradhapura, 72=Polonnaruwa
+Uva Province: 81=Badulla, 82=Monaragala
+Sabaragamuwa Province: 91=Ratnapura, 92=Kegalle
+
 IMPORTANT: When showing data in your response, always translate these codes to their meanings.
 Example: Instead of "Sector: 1", write "Sector: 1 (Urban)"
-         Instead of "Employment: 2", write "Employment: 2 (Private)"
+         Instead of "District: 11", write "District: 11 (Colombo)"
+         Instead of "Q16: 3", write "Q16: 3 (Own account worker)"
 
 CRITICAL INSTRUCTIONS:
 1. Analyze the actual data provided below
