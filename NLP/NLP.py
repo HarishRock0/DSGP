@@ -5,7 +5,7 @@ import numpy as np
 import warnings
 
 from llama_index.experimental.query_engine import PandasQueryEngine
-from llama_index.llms.huggingface_api import HuggingFaceInferenceAPI
+from llama_index.llms.groq import Groq
 from llama_index.core import Settings
 
 warnings.filterwarnings('ignore')
@@ -120,103 +120,42 @@ class LLMQueryEngine:
             self.has_clusters = False
             print("⚠️ No data loaded")
         
-        # Initialize LlamaIndex with Hugging Face Inference API (ONLINE)
+        # Initialize LlamaIndex with Groq (FAST API)
         try:
-            # Get Hugging Face token from environment variable (REQUIRED)
-            hf_token = (os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HUGGINGFACE_API_KEY") or "").strip()
-            if not hf_token:
-                raise ValueError(
-                    "❌ Hugging Face token not found!\n"
-                    "   Set environment variable: HUGGINGFACE_TOKEN\n"
-                    "   Get token from: https://huggingface.co/settings/tokens"
-                )
+            # Get API key from environment variable
+            groq_api_key = os.getenv('GROQ_API_KEY')
             
-            # Use Hugging Face Inference API with Falcon-7B model (ONLINE - FREE)
-            Settings.llm = HuggingFaceInferenceAPI(
-                model_name="tiiuae/falcon-7b-instruct",
-                token=hf_token,
-                context_window=2048,
-                num_output=512,
-                temperature=0.1
+            if not groq_api_key:
+                print("⚠️ GROQ_API_KEY environment variable not set!")
+                print("Please set it using one of these methods:")
+                print("  Windows CMD: set GROQ_API_KEY=your_api_key_here")
+                print("  Windows PowerShell: $env:GROQ_API_KEY='your_api_key_here'")
+                print("  Linux/Mac: export GROQ_API_KEY=your_api_key_here")
+                print("\n💡 Get your API key from: https://console.groq.com/")
+                self.query_engine = None
+                return
+            
+            # Use Groq with currently supported model
+            Settings.llm = Groq(
+                model="llama-3.3-70b-versatile",
+                api_key=groq_api_key,
+                temperature=0.1,
+                max_tokens=8000  # Increased to allow full beneficiary lists
             )
-            
-            # Create instruction prefix with comprehensive dataset descriptions
-            instruction_str = """You are a data analyst specializing in labor force surveys (LFS-2023 Sri Lanka).
-Answer questions about the dataset using data analysis.
-
-DATASET CONTEXT:
-This dataset includes demographics, literacy, disability/difficulty indicators, employment, income,
-informality, digital literacy, and location information for Sri Lanka.
-
-COLUMN MEANINGS:
-"""
-            for col, desc in COLUMN_DESCRIPTIONS.items():
-                instruction_str += f"- {col.upper()}: {desc}\n"
-
-            instruction_str += "\nDISABILITY/DIFFICULTY SCALE (P15-P20):\n"
-            for val, label in COLUMN_VALUE_SCALE.items():
-                instruction_str += f"  {val} = {label}\n"
-
-            instruction_str += "\nEMPLOYMENT STATUS (Q16):\n"
-            for val, label in EMPLOYMENT_STATUS.items():
-                instruction_str += f"  {val} = {label}\n"
-
-            instruction_str += "\nSECTOR (SECTOR):\n"
-            for val, label in SECTOR_MAP.items():
-                instruction_str += f"  {val} = {label}\n"
-
-            instruction_str += """
-ANALYSIS GUIDELINES:
-1. Disability questions (P15-P20): 1=No difficulty, 2=Some, 3=A lot, 4=Cannot do
-   - To find people WITH difficulties: df[df['pXX'] > 1]
-
-2. Poverty indicator: Q45_A_1 (Monthly Income) is PRIMARY poverty measure
-   - Also consider Q47 (informal vs formal employment)
-   - Q2 shows if person worked last week
-
-3. Employment analysis:
-   - Q16 = Employment status
-   - Q20 = Hours worked (underemployment)
-   - Q8 = Occupation/job type
-
-4. Skills & literacy:
-   - P10 = Education level
-   - P12-P14 = Language literacy (Sinhala, Tamil, English)
-   - Q60A = Computer literacy
-   - Q61 = Internet use
-
-5. Demographics & location:
-   - P4 = Gender (1=Male, 2=Female)
-   - P7 = Ethnicity
-   - P9 = Marital status
-   - SECTOR = Urban/Rural/Estate
-   - DISTRICT = Geographic location
-
-Return actual data and clear insights. Be specific and concise."""
-
-            # Initialize PandasQueryEngine if we have data
-            if self.df is not None:
-                self.query_engine = PandasQueryEngine(
-                    df=self.df,
-                    instruction_str=instruction_str,
-                    verbose=True,
-                    synthesize_response=True
-                )
-                print("✅ LlamaIndex PandasQueryEngine ready with Hugging Face API!")
-            print("📌 Using model: tiiuae/falcon-7b-instruct (FREE)")
-            print("🌐 All queries will be processed via Hugging Face API")
+            print("📌 Using model: llama-3.3-70b-versatile (Groq API)")
+            print("✅ Groq LLM ready for direct data analysis!")
+            print("🚀 All queries will be processed via Groq API (FAST)")
         except ImportError as ie:
-            print(f"⚠️ Hugging Face API integration not installed: {ie}")
-            print("📦 Install with: pip install llama-index-llms-huggingface-api")
+            print(f"⚠️ Groq integration not installed: {ie}")
+            print("📦 Install with: pip install llama-index-llms-groq")
             self.query_engine = None
         except Exception as e:
-            print(f"⚠️ Hugging Face API error: {e}")
+            print(f"⚠️ Groq API error: {e}")
             print("Please check:")
-            print("  1. Your Hugging Face token is valid (get from https://huggingface.co/settings/tokens)")
-            print("  2. You have access to tiiuae/falcon-7b-instruct model")
-            print("  3. Your internet connection is working")
-            print("  4. Token has 'inference' permission enabled")
-            print("\n💡 Visit model page: https://huggingface.co/tiiuae/falcon-7b-instruct")
+            print("  1. Your Groq API key is valid")
+            print("  2. You have internet connection")
+            print("  3. Groq service is available")
+            print("\n💡 Get API key from: https://console.groq.com/")
             self.query_engine = None
         
         # Conversation context for follow-up questions
@@ -226,7 +165,9 @@ Return actual data and clear insights. Be specific and concise."""
     
     def analyze_data(self, question: str):
         """
-        Answer questions about the data using LlamaIndex PandasQueryEngine
+        Answer questions about the data using two-step LLM approach:
+        1. Identify relevant columns/clusters for the question
+        2. Analyze only relevant data subset
         
         Args:
             question: User's question about the data
@@ -239,22 +180,230 @@ Return actual data and clear insights. Be specific and concise."""
         if self.df is None:
             return "⚠️ No data loaded. Please provide a dataset or CSV path."
         
-        if self.query_engine is None:
-            return "⚠️ Query engine not initialized. Please check your Hugging Face API configuration and internet connection."
+        if Settings.llm is None:
+            return "⚠️ LLM not initialized. Please check your Groq API configuration and internet connection."
         
         try:
-            # Query using LlamaIndex PandasQueryEngine
-            response = self.query_engine.query(question)
+            from llama_index.core.llms import ChatMessage
+            
+            # STEP 1: Identify relevant columns and analysis approach
+            print("📊 Step 1: Identifying relevant columns for analysis...")
+            
+            step1_prompt = f"""You are a data analyst. Analyze this question and identify which columns are needed.
+
+AVAILABLE COLUMNS:
+"""
+            for col, desc in COLUMN_DESCRIPTIONS.items():
+                step1_prompt += f"- {col.upper()}: {desc}\n"
+            
+            step1_prompt += f"""
+DATASET HAS {len(self.df)} records with columns: {', '.join(self.df.columns.tolist())}
+HAS CLUSTERS: {self.has_clusters}
+
+USER QUESTION: {question}
+
+Respond with ONLY a JSON object (no markdown, no code blocks):
+{{
+  "relevant_columns": ["col1", "col2", ...],
+  "needs_clusters": true/false,
+  "analysis_type": "resource_allocation" or "statistics" or "comparison" or "cluster_analysis",
+  "filter_criteria": "description of what data to filter (if any)"
+}}
+"""
+            
+            messages1 = [ChatMessage(role="user", content=step1_prompt)]
+            response1 = Settings.llm.chat(messages1)
+            
+            # Parse the response to get relevant columns
+            import json
+            import re
+            
+            response_text = str(response1.message.content).strip()
+            # Try to extract JSON if wrapped in markdown
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                response_text = json_match.group(0)
+            
+            column_info = json.loads(response_text)
+            relevant_cols = column_info.get('relevant_columns', [])
+            needs_clusters = column_info.get('needs_clusters', False)
+            analysis_type = column_info.get('analysis_type', 'statistics')
+            
+            # Extract number of items from question (e.g., "100 cars")
+            number_match = re.search(r'(\d+)\s+\w+', question)
+            num_items = int(number_match.group(1)) if number_match else 0
+            
+            print(f"✅ Identified relevant columns: {', '.join(relevant_cols)}")
+            print(f"✅ Analysis type: {analysis_type}")
+            if num_items > 0:
+                print(f"✅ Number of items to distribute: {num_items}")
+            
+            # STEP 2: Prepare focused data context with only relevant columns
+            print("📊 Step 2: Analyzing relevant data...")
+            
+            # Get only relevant columns that exist in the dataframe
+            existing_relevant_cols = [col for col in relevant_cols if col in self.df.columns or col.upper() in self.df.columns or col.lower() in self.df.columns]
+            
+            # Build column mapping (handle case sensitivity)
+            col_mapping = {}
+            for col in existing_relevant_cols:
+                for df_col in self.df.columns:
+                    if df_col.lower() == col.lower():
+                        col_mapping[col] = df_col
+                        break
+            
+            actual_cols = list(col_mapping.values())
+            
+            # Create focused dataframe
+            if actual_cols:
+                focused_df = self.df[actual_cols].copy()
+            else:
+                # If no specific columns identified, use a limited set
+                focused_df = self.df.iloc[:, :10].copy()  # First 10 columns
+            
+            # For resource allocation, prepare beneficiary list
+            beneficiary_list = None
+            if analysis_type == "resource_allocation" and num_items > 0:
+                # Sort by need (lower income = higher priority)
+                # Find income column
+                income_col = None
+                for col in focused_df.columns:
+                    if 'q45' in col.lower() or 'income' in col.lower():
+                        income_col = col
+                        break
+                
+                if income_col:
+                    # Get top N beneficiaries sorted by income (ascending - poorest first)
+                    sorted_df = focused_df.dropna(subset=[income_col]).sort_values(income_col)
+                    top_beneficiaries = sorted_df.head(num_items)
+                    
+                    beneficiary_list = f"""
+TOP {len(top_beneficiaries)} BENEFICIARIES (Sorted by need - lowest income first):
+{top_beneficiaries.to_string(index=True)}
+"""
+            
+            # Prepare compact data context
+            df_info = f"""
+RELEVANT DATA FOR ANALYSIS:
+- Total records: {len(focused_df)}
+- Analyzing columns: {', '.join(focused_df.columns.tolist())}
+
+SAMPLE DATA (first 10 rows):
+{focused_df.head(10).to_string()}
+
+STATISTICS FOR RELEVANT COLUMNS:
+{focused_df.describe(include='all').to_string()}
+"""
+            
+            if beneficiary_list:
+                df_info += beneficiary_list
+            
+            # Add cluster analysis if needed
+            if needs_clusters and self.has_clusters:
+                try:
+                    # Build aggregation for relevant columns only
+                    agg_dict = {}
+                    for col in focused_df.columns:
+                        if col != 'cluster_id' and focused_df[col].dtype in ['int64', 'float64']:
+                            agg_dict[col] = ['mean', 'count']
+                    
+                    if agg_dict:
+                        cluster_summary = self.df.groupby('cluster_id').agg(agg_dict).head(20).to_string()
+                        df_info += f"\n\nCLUSTER SUMMARY:\n{cluster_summary}\n"
+                except Exception as cluster_err:
+                    print(f"⚠️ Could not generate cluster summary: {cluster_err}")
+            
+            # STEP 3: Get final answer from LLM
+            final_prompt = f"""You are a data analyst for Sri Lankan labor force survey data.
+
+QUESTION: {question}
+
+ANALYSIS TYPE: {analysis_type}
+
+COLUMN MEANINGS (for reference):
+"""
+            for col in relevant_cols[:10]:  # Limit to top 10 relevant columns
+                if col in COLUMN_DESCRIPTIONS:
+                    final_prompt += f"- {col.upper()}: {COLUMN_DESCRIPTIONS[col]}\n"
+            
+            final_prompt += """
+
+CRITICAL INSTRUCTIONS:
+1. Analyze the actual data provided below
+2. Calculate statistics from the sample and summary statistics
+3. Return ONLY the final answer with actual numbers from the data
+4. DO NOT return Python code
+5. Be specific and data-driven
+
+"""
+            if analysis_type == "resource_allocation":
+                final_prompt += f"""
+FOR RESOURCE ALLOCATION OF {num_items} ITEMS:
+
+I have provided you with a list of the TOP {num_items} BENEFICIARIES sorted by need (lowest income first).
+
+CRITICAL: You MUST show ALL {num_items} beneficiaries. DO NOT abbreviate with "..." or skip rows.
+
+Your task:
+1. List EVERY SINGLE beneficiary from the provided list (all {num_items} rows)
+2. For each beneficiary, show:
+   - Row number (1 to {num_items})
+   - Dataset index
+   - Income value
+   - Occupation code (if available)
+   - Sector (if available)
+   - District (if available)
+
+Format your response as a COMPLETE LIST:
+
+BENEFICIARY ALLOCATION LIST (ALL {num_items} items):
+
+[Show ALL rows from 1 to {num_items} - DO NOT use "..." or skip any rows]
+
+No. | Index | Income    | Occupation | Sector | District
+----|-------|-----------|------------|--------|----------
+1   | X     | Rs. X,XXX | XXXX       | X      | XX
+2   | X     | Rs. X,XXX | XXXX       | X      | XX
+3   | X     | Rs. X,XXX | XXXX       | X      | XX
+[Continue for ALL {num_items} rows without abbreviation]
+
+After the complete list, provide summary statistics:
+- Total beneficiaries: {num_items}
+- Average income: Rs. X
+- Income range: Rs. X (lowest) to Rs. Y (highest)
+- Distribution by sector: Urban (X), Rural (Y), Estate (Z)
+- Top 5 districts with counts
+
+REMEMBER: Show EVERY SINGLE ROW from the beneficiary list. No abbreviations!
+"""
+            else:
+                final_prompt += """
+
+CRITICAL INSTRUCTIONS:
+1. Analyze the actual data provided below
+2. Calculate statistics from the sample and summary statistics
+3. Return ONLY the final answer with actual numbers from the data
+4. DO NOT return Python code
+5. Be specific and data-driven
+"""
+            
+            final_prompt += df_info
+            final_prompt += f"\n\nProvide your analysis:"
+            
+            messages2 = [ChatMessage(role="user", content=final_prompt)]
+            response2 = Settings.llm.chat(messages2)
             
             # Store conversation context
             self.last_question = question
-            self.last_answer = str(response)
+            self.last_answer = str(response2.message.content)
             
-            return str(response)
+            return str(response2.message.content)
             
         except Exception as e:
             error_msg = f"⚠️ Error processing query: {str(e)}"
             print(error_msg)
+            import traceback
+            traceback.print_exc()
             return error_msg
 
 
@@ -297,7 +446,7 @@ if __name__ == "__main__":
     
     # Interactive query loop
     print("\n" + "=" * 70)
-    print("💬 LLM Query Engine - Falcon-7B via Hugging Face API (FREE)")
+    print("💬 LLM Query Engine - Llama 3.3 70B via Groq API (FAST)")
     print("=" * 70)
     print("Ask questions about your LFS-2023 data!")
     print("Examples:")
