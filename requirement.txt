@@ -1,9 +1,21 @@
-langchain==0.2.16
+# Web frameworks
 streamlit==1.52.2
-pandas==2.3.3
+
+# Data processing
+pandas==2.2.0
 numpy==1.26.4
-sentence-transformer=5.2.0
-pydantic==2.12.5
-torch==2.9.1
 openpyxl==3.1.5
-plotly==6.5.2
+
+# Machine learning
+scikit-learn==1.5.2
+
+# LLM & NLP
+llama-index==0.12.10
+llama-index-llms-huggingface-api==0.6.2
+llama-index-experimental==0.5.4
+
+# Visualization
+plotly==6.0.1
+
+# Utilities
+pydantic==2.8.0

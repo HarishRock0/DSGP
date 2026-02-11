@@ -19,3 +19,4 @@ class NLPRecommendationAgent(Runnable):
 
         return RecommendationSignal(districts=districts)
 
+
