@@ -428,8 +428,18 @@ CRITICAL - CODE GENERATION RULES:
 - Never use markdown code blocks (``` ```). Output ONLY raw Python code.
 - Do NOT include ```python, ```, or any markdown formatting.
 - Code must use only: df, pd, np (pandas, numpy already imported)
-- Always print actual data, not just summaries
+- For column/structure queries: Assign result to variable, e.g., columns = df.columns.tolist()
+- For data queries: Always print actual data, not just summaries
 - Filter the DataFrame using actual integer/string values that match the dataset
+
+SPECIAL INSTRUCTIONS FOR COLUMN QUERIES:
+When asked about columns/structure, use code like:
+columns = df.columns.tolist()
+print(f"Dataset has {len(columns)} columns: {columns}")
+
+Or for specific info:
+shape = df.shape
+print(f"Dataset shape: {shape[0]} rows, {shape[1]} columns")
 
 LAPTOP/TAXI DISTRIBUTION STRATEGY:
 When asked "who should I give X items to", prioritize by:
@@ -498,7 +508,7 @@ Return actual data and clear insights. Be specific and concise."""
                     df=self.df,
                     instruction_str=instruction_str,
                     verbose=True,
-                    synthesize_response=True
+                    synthesize_response=True  # Keep True for natural language responses
                 )
                 print("✅ LlamaIndex PandasQueryEngine ready!")
             else:
@@ -528,6 +538,16 @@ Return actual data and clear insights. Be specific and concise."""
         
         if self.df is None:
             return "⚠️ No data loaded."
+        
+        # Handle simple column/structure queries directly
+        question_lower = question.lower()
+        if any(keyword in question_lower for keyword in ['columns', 'column', 'fields', 'structure', 'schema']):
+            columns = self.df.columns.tolist()
+            return f"📊 Dataset has {len(columns)} columns:\n" + "\n".join([f"• {col}" for col in columns])
+        
+        if 'shape' in question_lower or 'size' in question_lower:
+            shape = self.df.shape
+            return f"📊 Dataset shape: {shape[0]:,} rows × {shape[1]} columns"
         
         if self.query_engine is None:
             return "⚠️ Query engine not initialized."
