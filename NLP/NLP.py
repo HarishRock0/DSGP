@@ -3,55 +3,75 @@ import pickle
 import pandas as pd
 import numpy as np
 import warnings
+import torch
+import sys
+import argparse
+import re
+import json
 
+# LlamaIndex imports for pandas query engine
 from llama_index.experimental.query_engine import PandasQueryEngine
-from llama_index.llms.groq import Groq
 from llama_index.core import Settings
+try:
+    from llama_index.llms.groq import Groq
+    _LLAMA_INDEX_IMPORT_ERROR = None
+except ImportError as import_error:
+    Groq = None
+    _LLAMA_INDEX_IMPORT_ERROR = import_error
+
+# Transformers imports for clustering engine (optional)
+try:
+    from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+except ImportError:
+    pipeline = None
+    AutoTokenizer = None
+    AutoModelForSequenceClassification = None
 
 warnings.filterwarnings('ignore')
 
-# Comprehensive column descriptions for LFS-2023 dataset
+# Comprehensive column descriptions for LFS-2023 dataset matching actual CSV column names
 COLUMN_DESCRIPTIONS = {
     # Demographics
-    "p3": "Relationship to head of household (1=Head, 2=Spouse, 3=Child)",
-    "p4": "Gender (1=Male, 2=Female)",
-    "p7": "Ethnic Group (1=Sinhala, 2=SL Tamil, 3=Indian Tamil, 4=Moor, 5=Malay, 6=Burgher, 9=Other)",
-    "p9": "Marital Status (1=Never Married, 2=Married, 3=Widowed, 4=Divorced, 5=Separated)",
-    "p10": "Highest Education Level (00=Grade 1, 05=Grade 5, 11=O/L, 13=A/L, 15=Degree, 16=PostGrad, 19=No Schooling)",
+    "RSHIP": "Relationship to head of household (1=Head, 2=Spouse, 3=Child)",
+    "SEX": "Gender (1=Male, 2=Female)",
+    "ETH": "Ethnic Group (1=Sinhala, 2=SL Tamil, 3=Indian Tamil, 4=Moor, 5=Malay, 6=Burgher, 9=Other)",
+    "MARITAL": "Marital Status (1=Never Married, 2=Married, 3=Widowed, 4=Divorced, 5=Separated)",
+    "AGE": "Age in years (numeric, range typically 15-65+)",
+    "EDU": "Highest Education Level (00=Grade 1, 05=Grade 5, 11=O/L, 13=A/L, 15=Degree, 16=PostGrad, 19=No Schooling)",
 
     # Literacy
-    "p12": "Sinhala Literacy (1=Can read/write, 2=Cannot read/write)",
-    "p13": "Tamil Literacy (1=Can read/write, 2=Cannot read/write)",
-    "p14": "English Literacy (1=Can read/write, 2=Cannot read/write)",
+    "SIN": "Sinhala Literacy (1=Can read/write, 2=Cannot read/write)",
+    "TAMIL": "Tamil Literacy (1=Can read/write, 2=Cannot read/write)",
+    "ENG": "English Literacy (1=Can read/write, 2=Cannot read/write)",
 
     # Disability/Difficulty Questions
-    "p15": "Vision Difficulty - Even with glasses (1=None, 2=Some, 3=A lot, 4=Cannot do)",
-    "p16": "Hearing Difficulty - Even with hearing aid (1=None, 2=Some, 3=A lot, 4=Cannot do)",
-    "p17": "Mobility Difficulty - Walking or climbing steps (1=None, 2=Some, 3=A lot, 4=Cannot do)",
-    "p18": "Cognitive Difficulty - Remembering or concentrating (1=None, 2=Some, 3=A lot, 4=Cannot do)",
-    "p19": "Self-care Difficulty - Washing or dressing (1=None, 2=Some, 3=A lot, 4=Cannot do)",
-    "p20": "Communicating Difficulty - Using usual language (1=None, 2=Some, 3=A lot, 4=Cannot do)",
-    "p21": "Education/Training Participation - Last 12 months",
+    "P15": "Vision Difficulty - Even with glasses (1=None, 2=Some, 3=A lot, 4=Cannot do)",
+    "P16": "Hearing Difficulty - Even with hearing aid (1=None, 2=Some, 3=A lot, 4=Cannot do)",
+    "P17": "Mobility Difficulty - Walking or climbing steps (1=None, 2=Some, 3=A lot, 4=Cannot do)",
+    "P18": "Cognitive Difficulty - Remembering or concentrating (1=None, 2=Some, 3=A lot, 4=Cannot do)",
+    "P19": "Self-care Difficulty - Washing or dressing (1=None, 2=Some, 3=A lot, 4=Cannot do)",
+    "P20": "Communicating Difficulty - Using usual language (1=None, 2=Some, 3=A lot, 4=Cannot do)",
+    "P21": "Education/Training Participation - Last 12 months",
 
     # Employment
-    "q2": "Work Activity - Did person work for pay/profit in last week? (1=Yes, 2=No)",
-    "q8": "Occupation - Main job/task performed (ISCO-08 coded)",
-    "q16": "Employment Status (1=Public Employee, 2=Private Employee, 3=Employer, 4=Own account worker, 5=Contributing family worker)",
-    "q20": "Hours Worked - Total actual hours per week at main job (Identifies underemployment)",
+    "Q2": "Work Activity - Did person work for pay/profit in last week? (1=Yes, 2=No)",
+    "Q8": "Occupation - Main job/task performed (ISCO-08 coded)",
+    "Q16": "Employment Status (1=Public Employee, 2=Private Employee, 3=Employer, 4=Own account worker, 5=Contributing family worker)",
+    "Q20": "Hours Worked - Total actual hours per week at main job (Identifies underemployment)",
 
     # Income & Poverty
-    "q45_a_1": "Monthly Income - Total gross salary or profit in last month (PRIMARY POVERTY INDICATOR)",
+    "Q45_A_1": "Monthly Income - Total gross salary or profit in last month (PRIMARY POVERTY INDICATOR)",
 
     # Formality
-    "q47": "Informal Flag - Workplace formality (1=Formal/Registered/Accounts, 2=Informal/Not registered)",
+    "Q47": "Informal Flag - Workplace formality (1=Formal/Registered/Accounts, 2=Informal/Not registered)",
 
     # Digital Skills
-    "q60a": "Computer Literacy (1=Can use computer, 2=Cannot use)",
-    "q61": "Internet Use - Used internet in last 12 months",
+    "Q60A": "Computer Literacy (1=Can use computer, 2=Cannot use)",
+    "Q61": "Internet Use - Used internet in last 12 months",
 
     # Location
-    "sector": "Residential Sector (1=Urban, 2=Rural, 3=Estate)",
-    "district": "Administrative District"
+    "SECTOR": "Residential Sector (1=Urban, 2=Rural, 3=Estate)",
+    "DISTRICT": "Administrative District"
 }
 
 # Value scales for disability/difficulty questions
@@ -78,15 +98,251 @@ SECTOR_MAP = {
     3: "Estate"
 }
 
+# GPU Detection with detailed diagnostics
+print("\n" + "="*60)
+print("🔍 GPU Detection & Diagnostics")
+print("="*60)
+print(f"PyTorch Version: {torch.__version__}")
+print(f"CUDA Available: {torch.cuda.is_available()}")
+print(f"CUDA Built: {torch.version.cuda if torch.version.cuda else 'NO (CPU-only PyTorch)'}")
+
+if torch.cuda.is_available():
+    print(f"🎮 GPU detected: {torch.cuda.get_device_name(0)}")
+    print(f"📊 CUDA Version: {torch.version.cuda}")
+    print(f"🔢 GPU Count: {torch.cuda.device_count()}")
+    DEVICE = "cuda"
+    print("✅ Using GPU for inference")
+else:
+    print("💻 Running on CPU")
+    print("\n⚠️ GPU NOT detected. Common fixes:")
+    print("   1. Install PyTorch with CUDA support:")
+    print("      pip uninstall torch")
+    print("      pip install torch --index-url https://download.pytorch.org/whl/cu121")
+    print("   2. Update NVIDIA drivers: https://www.nvidia.com/Download/index.aspx")
+    print("   3. Verify CUDA installation: nvidia-smi")
+    DEVICE = "cpu"
+print("="*60 + "\n")
+
 
 class SkillDev:
-    """Stub class to support unpickling SkillDev model instances"""
+    """Minimal stub to support unpickling SkillDev instances."""
     pass
+
+class NLPClusterQueryEngine:
+    """
+    NLP-based query engine that uses pretrained models to understand requests
+    and access cluster data from the trained SkillDev model
+    """
+    
+    def __init__(self, model_path):
+        """Load the trained SkillDev model"""
+        print("🔄 Loading trained clustering model...")
+        with open(model_path, 'rb') as f:
+            self.skilldev_model = pickle.load(f)
+        
+        self.df = self.skilldev_model.df
+        self.kmeans = self.skilldev_model.kmeans
+        self.features = self.skilldev_model.features
+        
+        print("✅ Model loaded successfully!")
+
+        # Initialize pretrained NLP models
+        print(f"\n🤖 Loading pretrained NLP models on {DEVICE.upper()}...")
+        try:
+            self.classifier = pipeline(
+                "zero-shot-classification",
+                model="facebook/bart-large-mnli",
+                device=0 if torch.cuda.is_available() else -1
+            )
+            print(f"✅ Zero-shot classifier loaded on {DEVICE.upper()}")
+        except Exception as e:
+            print(f"⚠️ Could not load zero-shot classifier: {e}")
+            self.classifier = None
+
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
+            self.model = AutoModelForSequenceClassification.from_pretrained("sentence-transformers/all-MiniLM-L6-v2").to(DEVICE)
+            print(f"✅ Semantic model loaded on {DEVICE.upper()}")
+        except Exception as e:
+            print(f"⚠️ Could not load semantic model: {e}")
+            self.tokenizer = None
+            self.model = None
+    
+    def understand_query(self, query):
+        """Use NLP to understand user query and extract intent"""
+        print(f"\n🔍 Analyzing query: '{query}'")
+        
+        if not self.classifier:
+            print("⚠️ Classifier not available, using keyword matching")
+            return self._keyword_intent(query)
+        
+        # Possible intents
+        intents = [
+            "find records in a specific cluster",
+            "compare clusters",
+            "analyze demographic patterns",
+            "identify outliers",
+            "get cluster statistics"
+        ]
+        
+        try:
+            result = self.classifier(query, intents, multi_class=False)
+            top_intent = result['labels'][0]
+            confidence = result['scores'][0]
+            
+            print(f"📌 Detected Intent: {top_intent}")
+            print(f"💯 Confidence: {confidence:.2%}")
+            
+            return {
+                'intent': top_intent,
+                'confidence': confidence,
+                'query': query
+            }
+        except Exception as e:
+            print(f"⚠️ Intent detection failed: {e}")
+            return self._keyword_intent(query)
+    
+    def _keyword_intent(self, query):
+        """Fallback keyword-based intent detection"""
+        query_lower = query.lower()
+        
+        if any(kw in query_lower for kw in ['cluster', 'group', 'segment']):
+            intent = "find records in a specific cluster"
+        elif any(kw in query_lower for kw in ['compare', 'difference', 'vs']):
+            intent = "compare clusters"
+        elif any(kw in query_lower for kw in ['pattern', 'analyze', 'demographic']):
+            intent = "analyze demographic patterns"
+        elif any(kw in query_lower for kw in ['outlier', 'extreme', 'unusual']):
+            intent = "identify outliers"
+        else:
+            intent = "get cluster statistics"
+        
+        return {
+            'intent': intent,
+            'confidence': 0.5,
+            'query': query
+        }
+    
+    def query_clusters(self, query):
+        """Execute query against the cluster data"""
+        intent_result = self.understand_query(query)
+        intent = intent_result['intent']
+        
+        print(f"\n⚙️ Executing query...")
+        
+        if "specific cluster" in intent:
+            return self._get_cluster_records(query)
+        elif "compare" in intent:
+            return self._compare_clusters()
+        elif "pattern" in intent:
+            return self._analyze_patterns(query)
+        elif "outlier" in intent:
+            return self._find_outliers()
+        else:
+            return self._get_cluster_stats()
+    
+    def _get_cluster_records(self, query):
+        """Get records from a specific cluster"""
+        print("\n📋 Cluster Records:")
+        
+        # Extract cluster number from query if possible
+        import re
+        cluster_nums = re.findall(r'\d+', query)
+        
+        if cluster_nums:
+            cluster_id = int(cluster_nums[0]) % self.skilldev_model.n_clusters
+        else:
+            cluster_id = 0
+        
+        cluster_data = self.df[self.df['cluster_id'] == cluster_id]
+        
+        print(f"Cluster {cluster_id}: {len(cluster_data)} records")
+        print(cluster_data[self.features[:5]].head(10))
+        
+        return cluster_data
+    
+    def _compare_clusters(self):
+        """Compare statistics across clusters"""
+        print("\n📊 Cluster Comparison:")
+        
+        for cluster_id in range(self.skilldev_model.n_clusters):
+            cluster_data = self.df[self.df['cluster_id'] == cluster_id]
+            print(f"\nCluster {cluster_id}:")
+            print(f"  Records: {len(cluster_data)}")
+            print(f"  Mean values: {cluster_data[self.features[:3]].mean().round(2).to_dict()}")
+    
+    def _analyze_patterns(self, query):
+        """Analyze demographic patterns in clusters"""
+        print("\n🔬 Pattern Analysis:")
+        
+        # Show variance across clusters for each feature
+        for feature in self.features[:5]:
+            cluster_means = self.df.groupby('cluster_id')[feature].mean()
+            print(f"\n{feature}:")
+            print(cluster_means.round(2))
+        
+        return self.df.groupby('cluster_id')[self.features[:5]].mean()
+    
+    def _find_outliers(self):
+        """Identify outlier records"""
+        print("\n⚠️ Outlier Detection:")  
+        
+        from sklearn.preprocessing import StandardScaler
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(self.df[self.features])
+        
+        # Records with extreme values (|z-score| > 3)
+        outliers = np.where((np.abs(X_scaled) > 3).any(axis=1))[0]
+        
+        print(f"Found {len(outliers)} outlier records")
+        if len(outliers) > 0:
+            print(self.df.iloc[outliers[:10]][self.features[:5]])
+        
+        return self.df.iloc[outliers]
+    
+    def _get_cluster_stats(self):
+        """Get comprehensive cluster statistics"""
+        print("\n📈 Cluster Statistics:")
+        
+        stats = {
+            'Total Records': len(self.df),
+            'Clusters': self.skilldev_model.n_clusters,
+            'Distribution': self.df['cluster_id'].value_counts().to_dict()
+        }
+        
+        for key, value in stats.items():
+            print(f"{key}: {value}")
+        
+        return stats
+    
+    def interactive_query(self):
+        """Interactive query loop"""
+        print("\n" + "="*60)
+        print("💬 NLP Cluster Query Engine - Interactive Mode")
+        print("="*60)
+        print("Ask questions about your cluster data!")
+        print("Examples:")
+        print("  - 'Show records in cluster 0'")
+        print("  - 'Compare all clusters'")
+        print("  - 'What patterns exist in the data?'")
+        print("  - 'Find outlier records'")
+        print("  - 'Cluster statistics'")
+        print("Type 'quit' to exit\n")
+        
+        while True:
+            query = input("📝 Your query: ").strip()
+            
+            if query.lower() == 'quit':
+                print("✅ Goodbye!")
+                break
+            
+            if query:
+                self.query_clusters(query)
 
 
 class LLMQueryEngine:
     """
-    LLM-powered pandas query engine using LlamaIndex & Hugging Face API
+    LLM-powered pandas query engine using LlamaIndex & Ollama (free & local)
     """
     
     def __init__(self, model_path=None, df=None, csv_path="data/LFS-2023.csv"):
@@ -120,42 +376,145 @@ class LLMQueryEngine:
             self.has_clusters = False
             print("⚠️ No data loaded")
         
-        # Initialize LlamaIndex with Groq (FAST API)
+        # Initialize LlamaIndex with Groq API
         try:
-            # Get API key from environment variable
-            groq_api_key = os.getenv('GROQ_API_KEY')
-            
+            if Groq is None:
+                raise ImportError(
+                    "Missing llama-index Groq LLM package. Install 'llama-index-llms-groq'."
+                ) from _LLAMA_INDEX_IMPORT_ERROR
+
+            groq_api_key = os.getenv("GROQ_API_KEY")
             if not groq_api_key:
-                print("⚠️ GROQ_API_KEY environment variable not set!")
-                print("Please set it using one of these methods:")
-                print("  Windows CMD: set GROQ_API_KEY=your_api_key_here")
-                print("  Windows PowerShell: $env:GROQ_API_KEY='your_api_key_here'")
-                print("  Linux/Mac: export GROQ_API_KEY=your_api_key_here")
-                print("\n💡 Get your API key from: https://console.groq.com/")
-                self.query_engine = None
-                return
-            
-            # Use Groq with currently supported model
+                raise ValueError(
+                    "Missing Groq API key. Set GROQ_API_KEY environment variable."
+                )
+
             Settings.llm = Groq(
-                model="llama-3.3-70b-versatile",
                 api_key=groq_api_key,
+                model="llama-3.3-70b-versatile",
                 temperature=0.1,
-                max_tokens=8000  # Increased to allow full beneficiary lists
+                timeout=120.0
             )
-            print("📌 Using model: llama-3.3-70b-versatile (Groq API)")
-            print("✅ Groq LLM ready for direct data analysis!")
-            print("🚀 All queries will be processed via Groq API (FAST)")
-        except ImportError as ie:
-            print(f"⚠️ Groq integration not installed: {ie}")
-            print("📦 Install with: pip install llama-index-llms-groq")
-            self.query_engine = None
+            
+            # Create instruction prefix with comprehensive dataset descriptions
+            instruction_str = """You are a data analyst specializing in labor force surveys (LFS-2023 Sri Lanka).
+Answer questions about the dataset using data analysis.
+
+DATASET CONTEXT:
+This dataset includes demographics, literacy, disability/difficulty indicators, employment, income,
+informality, digital literacy, and location information for Sri Lanka.
+
+COLUMN MEANINGS:
+"""
+            for col, desc in COLUMN_DESCRIPTIONS.items():
+                instruction_str += f"- {col}: {desc}\n"
+
+            instruction_str += "\nDISABILITY/DIFFICULTY SCALE (P15-P20):\n"
+            for val, label in COLUMN_VALUE_SCALE.items():
+                instruction_str += f"  {val} = {label}\n"
+
+            instruction_str += "\nEMPLOYMENT STATUS (Q16):\n"
+            for val, label in EMPLOYMENT_STATUS.items():
+                instruction_str += f"  {val} = {label}\n"
+
+            instruction_str += "\nSECTOR (SECTOR):\n"
+            for val, label in SECTOR_MAP.items():
+                instruction_str += f"  {val} = {label}\n"
+
+            instruction_str += """
+CRITICAL - CODE GENERATION RULES:
+- Use UPPERCASE column names ONLY: SEX, EDU, AGE, Q2, Q16, Q60A, SECTOR, DISTRICT, P15-P21, Q45_A_1, Q47, Q61, etc.
+- NEVER use lowercase column names - they won't exist in the dataframe!
+- Never use markdown code blocks (``` ```). Output ONLY raw Python code.
+- Do NOT include ```python, ```, or any markdown formatting.
+- Code must use only: df, pd, np (pandas, numpy already imported)
+- Always print actual data, not just summaries
+- Filter the DataFrame using actual integer/string values that match the dataset
+
+LAPTOP/TAXI DISTRIBUTION STRATEGY:
+When asked "who should I give X items to", prioritize by:
+1. Education level (EDU): Higher education = better resource use (11=O/L, 13=A/L, 15+=Degree)
+2. Computer literacy (Q60A): 1=Can use, 2=Cannot use - STRONGLY PREFER 1 for laptops
+3. Employment (Q2, Q16): Employed people benefit more (Q2==1 for worked last week, Q16 in [1-4])
+4. Age (AGE): For taxis/vehicles prefer working age (18-65)
+5. Location (SECTOR): Can filter by 1=Urban, 2=Rural, 3=Estate as needed
+6. Income (Q45_A_1): Lower income may indicate greater need
+7. Add reset_index() to get row numbers for identification
+
+Code template for INCLUSIVE selection (to get 100+ recipients):
+# IMPORTANT: Use INCLUSIVE criteria - don't filter too aggressively!
+# For broad distribution (100+ recipients), use minimal filters
+result = df[(df['AGE'] >= 16) & (df['AGE'] <= 75)].copy()  # Wide age range
+# OPTIONAL: Sort by education to prioritize better-educated
+result = result.sort_values(by=['EDU'], ascending=False, na_position='last')
+# Reset index and take first X
+result = result.reset_index(drop=False).head(100)
+# Display results
+print(f"Selected {len(result)} recipients:")
+print(result[['index', 'SEX', 'EDU', 'Q16', 'AGE', 'SECTOR', 'Q45_A_1']].to_string())
+print(f"\\nTotal eligible (age 16-75): {len(df[(df['AGE'] >= 16) & (df['AGE'] <= 75)])}")
+
+ANALYSIS GUIDELINES:
+1. Disability questions (P15-P20): 1=No difficulty, 2=Some, 3=A lot, 4=Cannot do
+   - P15=Vision, P16=Hearing, P17=Mobility, P18=Cognition, P19=Self-care, P20=Communication
+
+2. Poverty indicator: Q45_A_1 (Monthly Income) is PRIMARY poverty measure
+   - Also consider Q47 (1=Formal/Registered, 2=Informal/Not registered) for job security
+   - Q2 shows if person worked last week (employment activity)
+
+3. Employment analysis:
+   - Q16 = Employment status (1=Public, 2=Private, 3=Employer, 4=Self-employed, 5=Unpaid family)
+   - Q20 = Hours worked per week (underemployment indicator)
+   - Q8 = Occupation type (ISCO-08 coded)
+
+4. Skills & literacy:
+   - EDU = Education level (00-06=primary, 11=O/L, 13=A/L, 15+=Degree)
+   - SIN, TAMIL, ENG = Language literacy (1=can read/write, 2=cannot)
+   - Q60A = Computer literacy (1=yes, 2=no)
+   - Q61 = Internet use
+
+5. Demographics & location:
+   - SEX = Gender (1=Male, 2=Female)
+   - AGE = Age in years (numeric)
+   - ETH = Ethnicity
+   - MARITAL = Marital status
+   - SECTOR = Urban/Rural/Estate (1/2/3)
+   - DISTRICT = Administrative district
+
+THE INDEX COLUMN IS IMPORTANT - IT IDENTIFIES EACH PERSON UNIQUELY!
+
+ALWAYS provide:
+1. The actual filtered dataframe with index numbers
+2. Show key columns: index, SEX, EDU, Q60A, Q2, Q16, AGE, SECTOR
+3. Print total count of eligible people
+4. Use INCLUSIVE criteria (not too narrow) to get meaningful results.
+
+Return actual data and clear insights. Be specific and concise."""
+
+
+            # Initialize PandasQueryEngine if we have data
+            if self.df is not None:
+                self.query_engine = PandasQueryEngine(
+                    df=self.df,
+                    instruction_str=instruction_str,
+                    verbose=True,
+                    synthesize_response=True
+                )
+                print("✅ LlamaIndex PandasQueryEngine ready!")
+            else:
+                self.query_engine = None
+                print("⚠️ No query engine created - no data available")
+                
         except Exception as e:
-            print(f"⚠️ Groq API error: {e}")
-            print("Please check:")
-            print("  1. Your Groq API key is valid")
-            print("  2. You have internet connection")
-            print("  3. Groq service is available")
-            print("\n💡 Get API key from: https://console.groq.com/")
+            print(f"⚠️ LlamaIndex/Groq not available: {e}")
+            print("Please set your Groq API key in GROQ_API_KEY environment variable.")
+            print("Get your key at: https://console.groq.com/keys")
+            self.query_engine = None
+                
+        except Exception as e:
+            print(f"⚠️ LlamaIndex/Groq not available: {e}")
+            print("Please set your Groq API key in GROQ_API_KEY environment variable.")
+            print("Get your key at: https://console.groq.com/keys")
             self.query_engine = None
         
         # Conversation context for follow-up questions
@@ -164,470 +523,99 @@ class LLMQueryEngine:
     
     
     def analyze_data(self, question: str):
-        """
-        Answer questions about the data using two-step LLM approach:
-        1. Identify relevant columns/clusters for the question
-        2. Analyze only relevant data subset
-        
-        Args:
-            question: User's question about the data
-        
-        Returns:
-            LLM's answer as a string
-        """
+        """Answer questions about the data using LlamaIndex PandasQueryEngine"""
         print(f"\n🔍 Processing question: {question}")
         
         if self.df is None:
-            return "⚠️ No data loaded. Please provide a dataset or CSV path."
+            return "⚠️ No data loaded."
         
-        if Settings.llm is None:
-            return "⚠️ LLM not initialized. Please check your Groq API configuration and internet connection."
+        if self.query_engine is None:
+            return "⚠️ Query engine not initialized."
         
         try:
-            from llama_index.core.llms import ChatMessage
-            
-            # STEP 1: Identify relevant columns and analysis approach
-            print("📊 Step 1: Identifying relevant columns for analysis...")
-            
-            step1_prompt = f"""You are a data analyst. Analyze this question and identify which columns are needed.
-
-AVAILABLE COLUMNS:
-"""
-            for col, desc in COLUMN_DESCRIPTIONS.items():
-                step1_prompt += f"- {col.upper()}: {desc}\n"
-            
-            step1_prompt += f"""
-DATASET HAS {len(self.df)} records with columns: {', '.join(self.df.columns.tolist())}
-HAS CLUSTERS: {self.has_clusters}
-
-USER QUESTION: {question}
-
-Respond with ONLY a JSON object (no markdown, no code blocks):
-{{
-  "relevant_columns": ["col1", "col2", ...],
-  "needs_clusters": true/false,
-  "analysis_type": "resource_allocation" or "statistics" or "comparison" or "cluster_analysis",
-  "filter_criteria": "description of what data to filter (if any)"
-}}
-"""
-            
-            messages1 = [ChatMessage(role="user", content=step1_prompt)]
-            response1 = Settings.llm.chat(messages1)
-            
-            # Parse the response to get relevant columns
-            import json
-            import re
-            
-            response_text = str(response1.message.content).strip()
-            # Try to extract JSON if wrapped in markdown
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                response_text = json_match.group(0)
-            
-            column_info = json.loads(response_text)
-            relevant_cols = column_info.get('relevant_columns', [])
-            needs_clusters = column_info.get('needs_clusters', False)
-            analysis_type = column_info.get('analysis_type', 'statistics')
-            
-            # Extract number of items from question (e.g., "100 cars")
-            number_match = re.search(r'(\d+)\s+\w+', question)
-            num_items = int(number_match.group(1)) if number_match else 0
-            
-            print(f"✅ Identified relevant columns: {', '.join(relevant_cols)}")
-            print(f"✅ Analysis type: {analysis_type}")
-            if num_items > 0:
-                print(f"✅ Number of items to distribute: {num_items}")
-            
-            # STEP 2: Prepare focused data context with only relevant columns
-            print("📊 Step 2: Analyzing relevant data...")
-            
-            # Get only relevant columns that exist in the dataframe
-            existing_relevant_cols = [col for col in relevant_cols if col in self.df.columns or col.upper() in self.df.columns or col.lower() in self.df.columns]
-            
-            # Build column mapping (handle case sensitivity)
-            col_mapping = {}
-            for col in existing_relevant_cols:
-                for df_col in self.df.columns:
-                    if df_col.lower() == col.lower():
-                        col_mapping[col] = df_col
-                        break
-            
-            actual_cols = list(col_mapping.values())
-            
-            # Create focused dataframe
-            if actual_cols:
-                focused_df = self.df[actual_cols].copy()
-            else:
-                # If no specific columns identified, use a limited set
-                focused_df = self.df.iloc[:, :10].copy()  # First 10 columns
-            
-            # For resource allocation, prepare beneficiary list
-            beneficiary_list = None
-            if analysis_type == "resource_allocation" and num_items > 0:
-                # Sort by need (lower income = higher priority)
-                # Find income column
-                income_col = None
-                for col in focused_df.columns:
-                    if 'q45' in col.lower() or 'income' in col.lower():
-                        income_col = col
-                        break
-                
-                if income_col:
-                    # Get top N beneficiaries sorted by income (ascending - poorest first)
-                    sorted_df = focused_df.dropna(subset=[income_col]).sort_values(income_col)
-                    top_beneficiaries = sorted_df.head(num_items)
-                    
-                    beneficiary_list = f"""
-TOP {len(top_beneficiaries)} BENEFICIARIES (Sorted by need - lowest income first):
-{top_beneficiaries.to_string(index=True)}
-"""
-            
-            # Prepare compact data context
-            df_info = f"""
-RELEVANT DATA FOR ANALYSIS:
-- Total records: {len(focused_df)}
-- Analyzing columns: {', '.join(focused_df.columns.tolist())}
-
-SAMPLE DATA (first 10 rows):
-{focused_df.head(10).to_string()}
-
-STATISTICS FOR RELEVANT COLUMNS:
-{focused_df.describe(include='all').to_string()}
-"""
-            
-            if beneficiary_list:
-                df_info += beneficiary_list
-            
-            # Add cluster analysis if needed
-            if needs_clusters and self.has_clusters:
-                try:
-                    # Build aggregation for relevant columns only
-                    agg_dict = {}
-                    for col in focused_df.columns:
-                        if col != 'cluster_id' and focused_df[col].dtype in ['int64', 'float64']:
-                            agg_dict[col] = ['mean', 'count']
-                    
-                    if agg_dict:
-                        cluster_summary = self.df.groupby('cluster_id').agg(agg_dict).head(20).to_string()
-                        df_info += f"\n\nCLUSTER SUMMARY:\n{cluster_summary}\n"
-                except Exception as cluster_err:
-                    print(f"⚠️ Could not generate cluster summary: {cluster_err}")
-            
-            # STEP 3: Get final answer from LLM
-            final_prompt = f"""You are a data analyst for Sri Lankan labor force survey data.
-
-QUESTION: {question}
-
-ANALYSIS TYPE: {analysis_type}
-
-COLUMN MEANINGS (for reference):
-"""
-            for col in relevant_cols[:10]:  # Limit to top 10 relevant columns
-                if col in COLUMN_DESCRIPTIONS:
-                    final_prompt += f"- {col.upper()}: {COLUMN_DESCRIPTIONS[col]}\n"
-            
-            final_prompt += """
-
-VALUE MAPPINGS (use these to translate codes in your responses):
-
-=== ADMINISTRATIVE & IDENTIFICATION ===
-SECTOR:
-  1 = Urban
-  2 = Rural
-  3 = Estate
-
-DISTRICT:
-  11 = Colombo
-  12 = Gampaha
-  13 = Kalutara
-  21 = Kandy
-  22 = Matale
-  23 = Nuwara Eliya
-  31 = Galle
-  32 = Matara
-  33 = Hambantota
-  41 = Jaffna
-  42 = Kilinochchi
-  43 = Mannar
-  44 = Vavuniya
-  45 = Mullaitivu
-  51 = Batticaloa
-  52 = Ampara
-  53 = Trincomalee
-  61 = Kurunegala
-  62 = Puttalam
-  71 = Anuradhapura
-  72 = Polonnaruwa
-  81 = Badulla
-  82 = Monaragala
-  91 = Ratnapura
-  92 = Kegalle
-
-=== PERSONAL CHARACTERISTICS ===
-RSHIP (Relationship to Head):
-  1 = Head
-  2 = Spouse
-  3 = Child
-  4 = Parent
-  5 = Other relative
-  6 = Non-relative
-
-SEX (Gender):
-  1 = Male
-  2 = Female
-
-ETH (Ethnicity):
-  1 = Sinhala
-  2 = SL Tamil
-  3 = Indian Tamil
-  4 = Moor
-  5 = Malay
-  6 = Burgher
-  9 = Other
-
-REL (Religion):
-  1 = Buddhist
-  2 = Hindu
-  3 = Islam
-  4 = Roman Catholic
-  5 = Other Christian
-  9 = Other
-
-MARITAL (Marital Status):
-  1 = Never married
-  2 = Married
-  3 = Widowed
-  4 = Divorced
-  5 = Separated
-
-EDU (Education Attainment):
-  00 = No schooling
-  01 = Grade 1
-  05 = Grade 5
-  11 = O/L (Ordinary Level)
-  12 = Passed O/L
-  13 = A/L (Advanced Level)
-  14 = Passed A/L
-  15 = Degree
-  16 = Postgraduate
-  19 = No schooling
-
-CUEDU (Currently in Education):
-  1 = Yes (currently studying)
-  2 = No
-
-SIN/TAMIL/ENG (Language Literacy):
-  1 = Can read and write
-  2 = Cannot read and write
-
-=== DISABILITY/DIFFICULTY (P15-P21) ===
-P15 (Vision), P16 (Hearing), P17 (Walking), P18 (Remembering), P19 (Self-care), P20 (Communication):
-  1 = No difficulty
-  2 = Some difficulty
-  3 = A lot of difficulty
-  4 = Cannot do at all
-
-=== EMPLOYMENT & ACTIVITY ===
-Q2 (Work Activity - Last 7 Days):
-  1 = Yes (worked for pay/profit)
-  2 = No
-
-Q16 (Employment Status):
-  1 = Employee (public/private)
-  2 = Employer
-  3 = Own account worker (self-employed)
-  4 = Contributing family worker
-
-Q36 (Job Search):
-  1 = Yes (looked for work)
-  2 = No
-
-Q43 (Availability):
-  1 = Yes (available to start work)
-  2 = No
-
-Q45_A_1 (Informal Sector - Organization Registered):
-  1 = Yes (formal)
-  2 = No (informal)
-
-Q46 (EPF/ETF Benefits):
-  1 = Yes (has benefits - formal employment)
-  2 = No (no benefits - informal employment)
-
-Q47 (Workplace Formality):
-  1 = Formal (registered, keeps accounts)
-  2 = Informal (not registered)
-
-Q63_A (Computer/Laptop Skills):
-  1 = Can use
-  2 = Cannot use
-
-Q63_B (Smartphone/Tablet Skills):
-  1 = Can use
-  2 = Cannot use
-
-Q64 (Internet Use - Last 12 months):
-  1 = Yes
-  2 = No
-
-=== KEY INCOME & POVERTY INDICATORS ===
-Q8 / Q45_A_1: Monthly Income/Salary (in LKR - Sri Lankan Rupees)
-Q20: Hours worked per week (underemployment if < 40 hours)
-
-=== DISTRICTS LOOKUP (for geographical targeting) ===
-Western Province: 11=Colombo, 12=Gampaha, 13=Kalutara
-Central Province: 21=Kandy, 22=Matale, 23=Nuwara Eliya
-Southern Province: 31=Galle, 32=Matara, 33=Hambantota
-Northern Province: 41=Jaffna, 42=Kilinochchi, 43=Mannar, 44=Vavuniya, 45=Mullaitivu
-Eastern Province: 51=Batticaloa, 52=Ampara, 53=Trincomalee
-North Western Province: 61=Kurunegala, 62=Puttalam
-North Central Province: 71=Anuradhapura, 72=Polonnaruwa
-Uva Province: 81=Badulla, 82=Monaragala
-Sabaragamuwa Province: 91=Ratnapura, 92=Kegalle
-
-IMPORTANT: When showing data in your response, always translate these codes to their meanings.
-Example: Instead of "Sector: 1", write "Sector: 1 (Urban)"
-         Instead of "District: 11", write "District: 11 (Colombo)"
-         Instead of "Q16: 3", write "Q16: 3 (Own account worker)"
-
-CRITICAL INSTRUCTIONS:
-1. Analyze the actual data provided below
-2. Calculate statistics from the sample and summary statistics
-3. Return ONLY the final answer with actual numbers from the data
-4. DO NOT return Python code
-5. Be specific and data-driven
-
-"""
-            if analysis_type == "resource_allocation":
-                final_prompt += f"""
-FOR RESOURCE ALLOCATION OF {num_items} ITEMS:
-
-I have provided you with a list of the TOP {num_items} BENEFICIARIES sorted by need (lowest income first).
-
-CRITICAL: You MUST show ALL {num_items} beneficiaries. DO NOT abbreviate with "..." or skip rows.
-
-Your task:
-1. List EVERY SINGLE beneficiary from the provided list (all {num_items} rows)
-2. For each beneficiary, show:
-   - Row number (1 to {num_items})
-   - Dataset index
-   - Income value
-   - Occupation code (if available)
-   - Sector (if available)
-   - District (if available)
-
-Format your response as a COMPLETE LIST:
-
-BENEFICIARY ALLOCATION LIST (ALL {num_items} items):
-
-[Show ALL rows from 1 to {num_items} - DO NOT use "..." or skip any rows]
-
-No. | Index | Income    | Occupation | Sector | District
-----|-------|-----------|------------|--------|----------
-1   | X     | Rs. X,XXX | XXXX       | X      | XX
-2   | X     | Rs. X,XXX | XXXX       | X      | XX
-3   | X     | Rs. X,XXX | XXXX       | X      | XX
-[Continue for ALL {num_items} rows without abbreviation]
-
-After the complete list, provide summary statistics:
-- Total beneficiaries: {num_items}
-- Average income: Rs. X
-- Income range: Rs. X (lowest) to Rs. Y (highest)
-- Distribution by sector: Urban (X), Rural (Y), Estate (Z)
-- Top 5 districts with counts
-
-REMEMBER: Show EVERY SINGLE ROW from the beneficiary list. No abbreviations!
-"""
-            else:
-                final_prompt += """
-
-CRITICAL INSTRUCTIONS:
-1. Analyze the actual data provided below
-2. Calculate statistics from the sample and summary statistics
-3. Return ONLY the final answer with actual numbers from the data
-4. DO NOT return Python code
-5. Be specific and data-driven
-"""
-            
-            final_prompt += df_info
-            final_prompt += f"\n\nProvide your analysis:"
-            
-            messages2 = [ChatMessage(role="user", content=final_prompt)]
-            response2 = Settings.llm.chat(messages2)
-            
-            # Store conversation context
+            response = self.query_engine.query(question)
             self.last_question = question
-            self.last_answer = str(response2.message.content)
-            
-            return str(response2.message.content)
-            
+            self.last_answer = str(response)
+            return str(response)
         except Exception as e:
-            error_msg = f"⚠️ Error processing query: {str(e)}"
+            error_msg = f"⚠️ Error: {str(e)}"
             print(error_msg)
-            import traceback
-            traceback.print_exc()
             return error_msg
+    
+
 
 
 # Main execution
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description='LLM Query Engine for LFS-2023 Data Analysis')
+    parser = argparse.ArgumentParser(description='NLP Query Engine for Cluster Analysis')
+    parser.add_argument('--mode', choices=['classic', 'llm'], default='llm',
+                        help='Query mode: classic (rule-based) or llm (AI-powered)')
     parser.add_argument('--model', type=str, help='Path to model pickle file')
-    parser.add_argument('--csv', type=str, default='data/LFS-2023.csv', help='Path to CSV file')
     
     args = parser.parse_args()
     
-    # Determine data source
+    # Load model
     if args.model:
         model_path = args.model
-        csv_path = None
     else:
-        # Try to find model file
-        candidate_paths = [
-            os.path.join('..', 'model', 'skilldev_model.pkl'),
-            os.path.join('model', 'skilldev_model.pkl'),
-        ]
-        
-        model_path = None
-        for path in candidate_paths:
-            if os.path.exists(path):
-                model_path = path
-                break
-        
-        csv_path = args.csv
+        model_path = os.path.join('..', 'model', 'skilldev_model.pkl')
+    
+    candidate_paths = [
+        model_path,
+        os.path.join('..', 'model', 'skilldev_model.pkl'),
+        os.path.join('model', 'skilldev_model.pkl'),
+    ]
+    
+    valid_path = None
+    for path in candidate_paths:
+        if os.path.exists(path):
+            valid_path = path
+            break
+    
+    if not valid_path:
+        print("❌ Model not found!")
+        exit(1)
+    
+    print(f"✅ Using model from: {valid_path}\n")
     
     # Initialize engine
-    if model_path:
-        print(f"✅ Using model from: {model_path}\n")
-        engine = LLMQueryEngine(model_path=model_path)
+    if args.mode == 'classic':
+        engine = NLPClusterQueryEngine(valid_path)
+        engine.interactive_query()
     else:
-        print(f"✅ Using CSV from: {csv_path}\n")
-        engine = LLMQueryEngine(csv_path=csv_path)
-    
-    # Interactive query loop
-    print("\n" + "=" * 70)
-    print("💬 LLM Query Engine - Llama 3.3 70B via Groq API (FAST)")
-    print("=" * 70)
-    print("Ask questions about your LFS-2023 data!")
-    print("Examples:")
-    print("  - How many people have vision difficulties?")
-    print("  - What is the average income by district?")
-    print("  - Compare employment rates by gender")
-    if engine.has_clusters:
-        print("  - What are the characteristics of each cluster?")
-    print("\nType 'quit' or 'exit' to stop\n")
-    
-    while True:
-        query = input("📝 Your query: ").strip()
+        engine = LLMQueryEngine(model_path=valid_path)
+        print("\n" + "=" * 70)
+        print("💬 LLM Query Interface")
+        print("=" * 70)
+        print("Commands: /clusters, /compare, /insights [topic], quit\n")
         
-        if query.lower() in ['quit', 'exit']:
-            print("✅ Goodbye!")
-            break
-        
-        if not query:
-            continue
-        
-        response = engine.analyze_data(query)
-        print(f"\n{response}\n")
+        while True:
+            query = input("📝 Your query: ").strip()
+            
+            if query.lower() in ['quit', 'exit']:
+                print("✅ Goodbye!")
+                break
+            
+            if not query:
+                continue
+            
+            if query.startswith('/'):
+                cmd_parts = query.split(' ', 1)
+                cmd = cmd_parts[0].lower()
+                cmd_arg = cmd_parts[1] if len(cmd_parts) > 1 else None
+                
+                if cmd == '/clusters':
+                    question = cmd_arg or "What can you tell me about the clusters?"
+                    print(engine.ask_about_clusters(question))
+                elif cmd == '/compare':
+                    print(engine.compare_clusters())
+                elif cmd == '/insights':
+                    print(engine.get_insights(cmd_arg))
+                else:
+                    print("⚠️ Unknown command")
+            else:
+                print(engine.analyze_data(query))
+            
+            print()
