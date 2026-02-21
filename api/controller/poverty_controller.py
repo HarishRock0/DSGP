@@ -1,14 +1,25 @@
-from fastapi import APIRouter
+from fastapi import FastAPI
 from pydantic import BaseModel
-from agents.coordinator_agent import CoordinatorAgent
+from recommendation_service import RecommendationService
 
-router = APIRouter()
-coordinator = CoordinatorAgent()
+app = FastAPI()
+recommendation_service = RecommendationService()
 
-class PreferenceInput(BaseModel):
+
+class RecommendationRequest(BaseModel):
     preference: str
 
-@router.post("/recommend")
-def recommend_regions(input: PreferenceInput):
-    regions = coordinator.get_recommendations(input.preference)
-    return {"top_regions": regions}
+
+class InsightsRequest(BaseModel):
+    district: str
+
+
+@app.post("/recommendations")
+def get_recommendations(request: RecommendationRequest):
+    return recommendation_service.get_recommendations(request.preference)
+
+
+@app.post("/insights")
+def get_insights(request: InsightsRequest):
+    return recommendation_service.get_insights(request.district)
+
