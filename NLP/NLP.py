@@ -392,7 +392,7 @@ class LLMQueryEngine:
             Settings.llm = Groq(
                 api_key=groq_api_key,
                 model="llama-3.3-70b-versatile",
-                temperature=0.1,
+                temperature=0.0,
                 timeout=120.0
             )
             
