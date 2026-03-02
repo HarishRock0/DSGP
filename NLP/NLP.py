@@ -31,47 +31,66 @@ warnings.filterwarnings('ignore')
 
 # Comprehensive column descriptions for LFS-2023 dataset matching actual CSV column names
 COLUMN_DESCRIPTIONS = {
+    # Identification & Location
+    "YEAR": "Survey year (2023)",
+    "MONTH": "Survey month (1-12)",
+    "SECTOR": "Residential Sector (1=Urban, 2=Rural, 3=Estate)",
+    "DISTRICT": "Administrative District code (11=Colombo, 12=Gampaha, 13=Kalutara, 21=Kandy, 22=Matale, 23=Nuwara Eliya, 31=Galle, 32=Matara, 33=Hambantota, 41=Jaffna, 42=Kilinochchi, 43=Mannar, 44=Vavuniya, 45=Mullaitivu, 51=Batticaloa, 52=Ampara, 53=Trincomalee, 61=Kurunegala, 62=Puttalam, 71=Anuradhapura, 72=Polonnaruwa, 81=Badulla, 82=Monaragala, 91=Ratnapura, 92=Kegalle)",
+    "PSU": "Primary Sampling Unit",
+    "HUNIT": "Housing Unit number",
+    "HHOLD": "Household number",
+    "SERNO": "Serial number of person within household",
+
     # Demographics
-    "RSHIP": "Relationship to head of household (1=Head, 2=Spouse, 3=Child)",
+    "RSHIP": "Relationship to head of household (1=Head, 2=Spouse, 3=Child, 4=Parent, 5=Other relative, 6=Non-relative)",
     "SEX": "Gender (1=Male, 2=Female)",
+    "BYEAR": "Birth year",
+    "BMONTH": "Birth month",
+    "AGE": "Age in years (numeric)",
     "ETH": "Ethnic Group (1=Sinhala, 2=SL Tamil, 3=Indian Tamil, 4=Moor, 5=Malay, 6=Burgher, 9=Other)",
+    "REL": "Religion (1=Buddhist, 2=Hindu, 3=Islam, 4=Roman Catholic, 5=Other Christian, 9=Other)",
     "MARITAL": "Marital Status (1=Never Married, 2=Married, 3=Widowed, 4=Divorced, 5=Separated)",
-    "AGE": "Age in years (numeric, range typically 15-65+)",
-    "EDU": "Highest Education Level (00=Grade 1, 05=Grade 5, 11=O/L, 13=A/L, 15=Degree, 16=PostGrad, 19=No Schooling)",
+    "EDU": "Highest Education Level (0/19=No schooling, 1-10=Grade 1-10, 11=O/L, 12=Passed O/L, 13=A/L, 14=Passed A/L, 15=Degree, 16=Postgraduate)",
+    "DEGREE": "Degree field of study (if applicable)",
+    "CUEDU": "Currently in Education (1=Yes, 2=No)",
 
     # Literacy
     "SIN": "Sinhala Literacy (1=Can read/write, 2=Cannot read/write)",
     "TAMIL": "Tamil Literacy (1=Can read/write, 2=Cannot read/write)",
     "ENG": "English Literacy (1=Can read/write, 2=Cannot read/write)",
 
-    # Disability/Difficulty Questions
+    # Disability/Difficulty Questions (P15-P20 all use same scale: 1=None, 2=Some, 3=A lot, 4=Cannot do)
     "P15": "Vision Difficulty - Even with glasses (1=None, 2=Some, 3=A lot, 4=Cannot do)",
     "P16": "Hearing Difficulty - Even with hearing aid (1=None, 2=Some, 3=A lot, 4=Cannot do)",
-    "P17": "Mobility Difficulty - Walking or climbing steps (1=None, 2=Some, 3=A lot, 4=Cannot do)",
+    "P17": "Mobility/Walking Difficulty - Walking or climbing steps (1=None, 2=Some, 3=A lot, 4=Cannot do)",
     "P18": "Cognitive Difficulty - Remembering or concentrating (1=None, 2=Some, 3=A lot, 4=Cannot do)",
     "P19": "Self-care Difficulty - Washing or dressing (1=None, 2=Some, 3=A lot, 4=Cannot do)",
-    "P20": "Communicating Difficulty - Using usual language (1=None, 2=Some, 3=A lot, 4=Cannot do)",
+    "P20": "Communication Difficulty - Using usual language (1=None, 2=Some, 3=A lot, 4=Cannot do)",
     "P21": "Education/Training Participation - Last 12 months",
 
     # Employment
-    "Q2": "Work Activity - Did person work for pay/profit in last week? (1=Yes, 2=No)",
-    "Q8": "Occupation - Main job/task performed (ISCO-08 coded)",
-    "Q16": "Employment Status (1=Public Employee, 2=Private Employee, 3=Employer, 4=Own account worker, 5=Contributing family worker)",
-    "Q20": "Hours Worked - Total actual hours per week at main job (Identifies underemployment)",
+    "Q2": "Work Activity - Did person work for pay/profit in last 7 days? (1=Yes, 2=No)",
+    "Q8": "Occupation code - Main job/task performed (ISCO-08 coded, stored as string)",
+    "Q16": "Employment Status (1=Employee public/private, 2=Employer, 3=Own account worker/self-employed, 4=Contributing family worker)",
+    "Q20": "Hours Worked - Total actual hours per week at main job (underemployment if < 40)",
+    "Q36": "Job Search - Looked for work in reference period (1=Yes, 2=No)",
+    "Q43": "Availability - Available to start work (1=Yes, 2=No)",
 
     # Income & Poverty
-    "Q45_A_1": "Monthly Income - Total gross salary or profit in last month (PRIMARY POVERTY INDICATOR)",
+    "Q45_A_1": "Monthly Income/Salary in LKR - stored as STRING with spaces for missing values. Must convert to numeric with pd.to_numeric(errors='coerce'). Only ~2600 of ~18937 rows have actual numeric values.",
 
-    # Formality
-    "Q47": "Informal Flag - Workplace formality (1=Formal/Registered/Accounts, 2=Informal/Not registered)",
+    # Formality & Benefits
+    "Q46": "EPF/ETF Benefits (1=Yes/formal, 2=No/informal)",
+    "Q47": "Workplace Formality (1=Formal/Registered, 2=Informal/Not registered)",
 
     # Digital Skills
-    "Q60A": "Computer Literacy (1=Can use computer, 2=Cannot use)",
-    "Q61": "Internet Use - Used internet in last 12 months",
+    "Q60A": "Computer Literacy (1=Can use, 2=Cannot use)",
+    "Q60B": "Smartphone/Tablet (1=Can use, 2=Cannot use)",
+    "Q61": "Internet Use - Used internet in last 12 months (1=Yes, 2=No)",
+    "Q64": "Internet Use frequency",
 
-    # Location
-    "SECTOR": "Residential Sector (1=Urban, 2=Rural, 3=Estate)",
-    "DISTRICT": "Administrative District"
+    # Weighting
+    "Annual_Factor": "Survey weight / Annual expansion factor for population estimates"
 }
 
 # Value scales for disability/difficulty questions
@@ -84,11 +103,10 @@ COLUMN_VALUE_SCALE = {
 
 # Employment status mapping
 EMPLOYMENT_STATUS = {
-    1: "Public Employee",
-    2: "Private Employee",
-    3: "Employer",
-    4: "Own Account Worker (Self-employed)",
-    5: "Contributing Family Worker"
+    1: "Employee (public/private)",
+    2: "Employer",
+    3: "Own Account Worker (Self-employed)",
+    4: "Contributing Family Worker"
 }
 
 # Sector mapping
@@ -96,6 +114,50 @@ SECTOR_MAP = {
     1: "Urban",
     2: "Rural",
     3: "Estate"
+}
+
+# District mapping
+DISTRICT_MAP = {
+    11: "Colombo", 12: "Gampaha", 13: "Kalutara",
+    21: "Kandy", 22: "Matale", 23: "Nuwara Eliya",
+    31: "Galle", 32: "Matara", 33: "Hambantota",
+    41: "Jaffna", 42: "Kilinochchi", 43: "Mannar", 44: "Vavuniya", 45: "Mullaitivu",
+    51: "Batticaloa", 52: "Ampara", 53: "Trincomalee",
+    61: "Kurunegala", 62: "Puttalam",
+    71: "Anuradhapura", 72: "Polonnaruwa",
+    81: "Badulla", 82: "Monaragala",
+    91: "Ratnapura", 92: "Kegalle"
+}
+
+# Ethnicity mapping
+ETHNICITY_MAP = {
+    1: "Sinhala", 2: "SL Tamil", 3: "Indian Tamil",
+    4: "Moor", 5: "Malay", 6: "Burgher", 9: "Other"
+}
+
+# Religion mapping
+RELIGION_MAP = {
+    1: "Buddhist", 2: "Hindu", 3: "Islam",
+    4: "Roman Catholic", 5: "Other Christian", 9: "Other"
+}
+
+# Marital status mapping
+MARITAL_MAP = {
+    1: "Never married", 2: "Married", 3: "Widowed",
+    4: "Divorced", 5: "Separated"
+}
+
+# Province to districts mapping
+PROVINCE_DISTRICTS = {
+    "Western": [11, 12, 13],
+    "Central": [21, 22, 23],
+    "Southern": [31, 32, 33],
+    "Northern": [41, 42, 43, 44, 45],
+    "Eastern": [51, 52, 53],
+    "North Western": [61, 62],
+    "North Central": [71, 72],
+    "Uva": [81, 82],
+    "Sabaragamuwa": [91, 92]
 }
 
 # GPU Detection with detailed diagnostics
@@ -342,290 +404,763 @@ class NLPClusterQueryEngine:
 
 class LLMQueryEngine:
     """
-    LLM-powered pandas query engine using LlamaIndex & Ollama (free & local)
+    LLM-powered query engine for Sri Lanka LFS-2023 data.
+
+    PRIMARY USE CASE: Efficient resource allocation (identify beneficiaries, prioritize
+    by need, allocate items).  Resource-allocation queries bypass PandasQueryEngine
+    entirely — everything is pre-computed in Python and sent to the LLM for
+    formatting only, guaranteeing 100 % accurate numbers.
+
+    SECONDARY: General demographic / statistical queries routed through
+    PandasQueryEngine.
     """
-    
-    def __init__(self, model_path=None, df=None, csv_path="data/LFS-2023.csv"):
-        """
-        Initialize the LLM Query Engine with LlamaIndex PandasQueryEngine
-        
-        Args:
-            model_path: Path to a trained clustering model (optional)
-            df: DataFrame to analyze (optional)
-            csv_path: Path to CSV file to load
-        """
-        print("🤖 Initializing LLM Query Engine with LlamaIndex + Pandas...")
-        
-        # Load data
+
+    # Education level labels used in scoring & display
+    EDU_MAP = {
+        0: 'No schooling', 1: 'Grade 1', 2: 'Grade 2', 3: 'Grade 3',
+        4: 'Grade 4', 5: 'Grade 5', 6: 'Grade 6', 7: 'Grade 7',
+        8: 'Grade 8', 9: 'Grade 9', 10: 'Grade 10', 11: 'O/L',
+        12: 'Passed O/L', 13: 'A/L', 14: 'Passed A/L', 15: 'Degree',
+        16: 'Postgraduate', 19: 'No schooling',
+    }
+
+    def __init__(self, model_path=None, df=None, csv_path="lfs_clustered_data.csv"):
+        print("🤖 Initializing LLM Query Engine …")
+
+        # ---- Load data ----
         if df is not None:
-            self.df = df
+            self.df = df.copy()
             self.has_clusters = 'cluster_id' in df.columns
         elif model_path and os.path.exists(model_path):
             print(f"📂 Loading model from {model_path}")
             with open(model_path, 'rb') as f:
                 model = pickle.load(f)
-            self.df = model.df if hasattr(model, 'df') else None
+            self.df = model.df.copy() if hasattr(model, 'df') and model.df is not None else None
             self.has_clusters = self.df is not None and 'cluster_id' in self.df.columns
         elif os.path.exists(csv_path):
             print(f"📂 Loading data from {csv_path}")
             self.df = pd.read_csv(csv_path)
             self.has_clusters = 'cluster_id' in self.df.columns
-            print(f"✅ Loaded {len(self.df)} records with {len(self.df.columns)} columns")
+            print(f"✅ Loaded {len(self.df)} records × {len(self.df.columns)} columns")
         else:
             self.df = None
             self.has_clusters = False
             print("⚠️ No data loaded")
-        
-        # Initialize LlamaIndex with Groq API
+
+        # ---- LLM setup ----
+        self.llm = None
+        self.query_engine = None
         try:
             if Groq is None:
                 raise ImportError(
-                    "Missing llama-index Groq LLM package. Install 'llama-index-llms-groq'."
+                    "Missing llama-index Groq LLM package. "
+                    "Install 'llama-index-llms-groq'."
                 ) from _LLAMA_INDEX_IMPORT_ERROR
 
             groq_api_key = os.getenv("GROQ_API_KEY")
             if not groq_api_key:
-                raise ValueError(
-                    "Missing Groq API key. Set GROQ_API_KEY environment variable."
-                )
+                raise ValueError("Missing GROQ_API_KEY environment variable.")
 
-            Settings.llm = Groq(
+            self.llm = Groq(
                 api_key=groq_api_key,
                 model="llama-3.3-70b-versatile",
                 temperature=0.0,
-                timeout=120.0
+                timeout=120.0,
             )
-            
-            # Create instruction prefix with comprehensive dataset descriptions
-            instruction_str = """You are a data analyst specializing in labor force surveys (LFS-2023 Sri Lanka).
-Answer questions about the dataset using data analysis.
+            Settings.llm = self.llm
 
-DATASET CONTEXT:
-This dataset includes demographics, literacy, disability/difficulty indicators, employment, income,
-informality, digital literacy, and location information for Sri Lanka.
-
-COLUMN MEANINGS:
-"""
-            for col, desc in COLUMN_DESCRIPTIONS.items():
-                instruction_str += f"- {col}: {desc}\n"
-
-            instruction_str += "\nDISABILITY/DIFFICULTY SCALE (P15-P20):\n"
-            for val, label in COLUMN_VALUE_SCALE.items():
-                instruction_str += f"  {val} = {label}\n"
-
-            instruction_str += "\nEMPLOYMENT STATUS (Q16):\n"
-            for val, label in EMPLOYMENT_STATUS.items():
-                instruction_str += f"  {val} = {label}\n"
-
-            instruction_str += "\nSECTOR (SECTOR):\n"
-            for val, label in SECTOR_MAP.items():
-                instruction_str += f"  {val} = {label}\n"
-
-            instruction_str += """
-CRITICAL - CODE GENERATION RULES:
-- Use UPPERCASE column names ONLY: SEX, EDU, AGE, Q2, Q16, Q60A, SECTOR, DISTRICT, P15-P21, Q45_A_1, Q47, Q61, etc.
-- NEVER use lowercase column names - they won't exist in the dataframe!
-- Never use markdown code blocks (``` ```). Output ONLY raw Python code.
-- Do NOT include ```python, ```, or any markdown formatting.
-- Code must use only: df, pd, np (pandas, numpy already imported)
-- For column/structure queries: Assign result to variable, e.g., columns = df.columns.tolist()
-- For data queries: Always print actual data, not just summaries
-- Filter the DataFrame using actual integer/string values that match the dataset
-
-SPECIAL INSTRUCTIONS FOR COLUMN QUERIES:
-When asked about columns/structure, use code like:
-columns = df.columns.tolist()
-print(f"Dataset has {len(columns)} columns: {columns}")
-
-Or for specific info:
-shape = df.shape
-print(f"Dataset shape: {shape[0]} rows, {shape[1]} columns")
-
-LAPTOP/TAXI DISTRIBUTION STRATEGY:
-When asked "who should I give X items to", prioritize by:
-1. Education level (EDU): Higher education = better resource use (11=O/L, 13=A/L, 15+=Degree)
-2. Computer literacy (Q60A): 1=Can use, 2=Cannot use - STRONGLY PREFER 1 for laptops
-3. Employment (Q2, Q16): Employed people benefit more (Q2==1 for worked last week, Q16 in [1-4])
-4. Age (AGE): For taxis/vehicles prefer working age (18-65)
-5. Location (SECTOR): Can filter by 1=Urban, 2=Rural, 3=Estate as needed
-6. Income (Q45_A_1): Lower income may indicate greater need
-7. Add reset_index() to get row numbers for identification
-
-Code template for INCLUSIVE selection (to get 100+ recipients):
-# IMPORTANT: Use INCLUSIVE criteria - don't filter too aggressively!
-# For broad distribution (100+ recipients), use minimal filters
-result = df[(df['AGE'] >= 16) & (df['AGE'] <= 75)].copy()  # Wide age range
-# OPTIONAL: Sort by education to prioritize better-educated
-result = result.sort_values(by=['EDU'], ascending=False, na_position='last')
-# Reset index and take first X
-result = result.reset_index(drop=False).head(100)
-# Display results
-print(f"Selected {len(result)} recipients:")
-print(result[['index', 'SEX', 'EDU', 'Q16', 'AGE', 'SECTOR', 'Q45_A_1']].to_string())
-print(f"\\nTotal eligible (age 16-75): {len(df[(df['AGE'] >= 16) & (df['AGE'] <= 75)])}")
-
-ANALYSIS GUIDELINES:
-1. Disability questions (P15-P20): 1=No difficulty, 2=Some, 3=A lot, 4=Cannot do
-   - P15=Vision, P16=Hearing, P17=Mobility, P18=Cognition, P19=Self-care, P20=Communication
-
-2. Poverty indicator: Q45_A_1 (Monthly Income) is PRIMARY poverty measure
-   - Also consider Q47 (1=Formal/Registered, 2=Informal/Not registered) for job security
-   - Q2 shows if person worked last week (employment activity)
-
-3. Employment analysis:
-   - Q16 = Employment status (1=Public, 2=Private, 3=Employer, 4=Self-employed, 5=Unpaid family)
-   - Q20 = Hours worked per week (underemployment indicator)
-   - Q8 = Occupation type (ISCO-08 coded)
-
-4. Skills & literacy:
-   - EDU = Education level (00-06=primary, 11=O/L, 13=A/L, 15+=Degree)
-   - SIN, TAMIL, ENG = Language literacy (1=can read/write, 2=cannot)
-   - Q60A = Computer literacy (1=yes, 2=no)
-   - Q61 = Internet use
-
-5. Demographics & location:
-   - SEX = Gender (1=Male, 2=Female)
-   - AGE = Age in years (numeric)
-   - ETH = Ethnicity
-   - MARITAL = Marital status
-   - SECTOR = Urban/Rural/Estate (1/2/3)
-   - DISTRICT = Administrative district
-
-THE INDEX COLUMN IS IMPORTANT - IT IDENTIFIES EACH PERSON UNIQUELY!
-
-ALWAYS provide:
-1. The actual filtered dataframe with index numbers
-2. Show key columns: index, SEX, EDU, Q60A, Q2, Q16, AGE, SECTOR
-3. Print total count of eligible people
-4. Use INCLUSIVE criteria (not too narrow) to get meaningful results.
-
-Return actual data and clear insights. Be specific and concise."""
-
-
-            # Initialize PandasQueryEngine if we have data
             if self.df is not None:
                 self.query_engine = PandasQueryEngine(
                     df=self.df,
-                    instruction_str=instruction_str,
+                    instruction_str=self._build_instruction_str(),
                     verbose=True,
-                    synthesize_response=True  # Keep True for natural language responses
+                    synthesize_response=True,
                 )
-                print("✅ LlamaIndex PandasQueryEngine ready!")
-            else:
-                self.query_engine = None
-                print("⚠️ No query engine created - no data available")
-                
+                print("✅ PandasQueryEngine ready (general queries)")
+            print("✅ Direct LLM ready (resource allocation)")
+
         except Exception as e:
-            print(f"⚠️ LlamaIndex/Groq not available: {e}")
-            print("Please set your Groq API key in GROQ_API_KEY environment variable.")
-            print("Get your key at: https://console.groq.com/keys")
-            self.query_engine = None
-                
-        except Exception as e:
-            print(f"⚠️ LlamaIndex/Groq not available: {e}")
-            print("Please set your Groq API key in GROQ_API_KEY environment variable.")
-            print("Get your key at: https://console.groq.com/keys")
-            self.query_engine = None
-        
-        # Conversation context for follow-up questions
+            print(f"⚠️ LLM not available: {e}")
+            print("Set GROQ_API_KEY env var.  Get key → https://console.groq.com/keys")
+
         self.last_question = None
         self.last_answer = None
-    
-    
+
+    # ==================================================================
+    #  QUERY-TYPE DETECTION
+    # ==================================================================
+
+    def _detect_analysis_type(self, question_lower: str):
+        """Return (analysis_type, params) tuple."""
+
+        # ---- Resource allocation ----
+        alloc_match = re.search(
+            r'(?:give|distribut|allocat|provide|deliver|hand\s*out|send|assign|target)\s+'
+            r'(\d+)\s+(\w+)',
+            question_lower,
+        )
+        if alloc_match:
+            return "resource_allocation", {
+                "num_items": int(alloc_match.group(1)),
+                "item_type": alloc_match.group(2),
+            }
+
+        # Phrases that imply allocation even without a verb+number
+        if any(kw in question_lower for kw in [
+            'who should', 'identify beneficiar', 'target population',
+            'most in need', 'most vulnerable', 'priority list',
+            'neediest', 'poorest', 'allocate resource',
+        ]):
+            num_match = re.search(r'(\d+)', question_lower)
+            return "resource_allocation", {
+                "num_items": int(num_match.group(1)) if num_match else 10,
+                "item_type": "items",
+            }
+
+        return "general", {}
+
+    # ==================================================================
+    #  NEED-SCORE COMPUTATION  (core of resource allocation)
+    # ==================================================================
+
+    def _compute_need_score(self, row, item_type: str, question_lower: str) -> float:
+        """
+        Compute a composite need score for one person (higher = greater need).
+
+        Factors (weighted):
+          1. Income (40 %)  — lower income → higher score
+          2. Education (15 %) — lower education → higher score
+          3. Disability burden (15 %) — more difficulty → higher score
+          4. Informality (10 %) — informal workers → higher score
+          5. Sector (10 %) — Estate > Rural > Urban
+          6. Item-specific (10 %) — e.g. computer literacy for laptops
+        """
+        score = 0.0
+        weights = {
+            'income': 0.40,
+            'education': 0.15,
+            'disability': 0.15,
+            'informality': 0.10,
+            'sector': 0.10,
+            'item_specific': 0.10,
+        }
+
+        # 1. Income component (0-100, lower income → higher score)
+        income = row.get('Q45_A_1')
+        if pd.notna(income):
+            # Scale: 0 LKR → 100, 100k+ → 0
+            score += weights['income'] * max(0.0, 100.0 - (float(income) / 1000.0))
+        else:
+            score += weights['income'] * 50  # Unknown income → moderate need
+
+        # 2. Education (0-100, lower edu → higher score)
+        edu = row.get('EDU')
+        if pd.notna(edu):
+            edu = float(edu)
+            if edu <= 5:
+                score += weights['education'] * 100
+            elif edu <= 10:
+                score += weights['education'] * 70
+            elif edu <= 12:
+                score += weights['education'] * 40
+            elif edu <= 14:
+                score += weights['education'] * 20
+            else:
+                score += weights['education'] * 5
+        else:
+            score += weights['education'] * 50
+
+        # 3. Disability burden (sum of P15-P20; each 1-4)
+        disability_cols = ['P15', 'P16', 'P17', 'P18', 'P19', 'P20']
+        d_total = 0
+        d_count = 0
+        for dc in disability_cols:
+            v = row.get(dc)
+            if pd.notna(v):
+                d_total += (float(v) - 1)  # 0 = no difficulty
+                d_count += 1
+        if d_count > 0:
+            # max possible = 3*6 = 18
+            score += weights['disability'] * min(100.0, (d_total / 18.0) * 100.0)
+
+        # 4. Informality
+        q47 = row.get('Q47')
+        if pd.notna(q47) and float(q47) == 2:
+            score += weights['informality'] * 100
+        q46_val = row.get('Q46')
+        if pd.notna(q46_val) and float(q46_val) == 2:
+            score += weights['informality'] * 50  # no EPF/ETF
+
+        # 5. Sector
+        sector = row.get('SECTOR')
+        if pd.notna(sector):
+            sector_scores = {3: 100, 2: 60, 1: 20}
+            score += weights['sector'] * sector_scores.get(int(sector), 40)
+
+        # 6. Item-specific bonus
+        is_tech = any(kw in question_lower for kw in ['laptop', 'computer', 'tablet', 'phone', 'device'])
+        is_transport = any(kw in question_lower for kw in ['taxi', 'vehicle', 'transport', 'bus', 'wheel'])
+        is_food = any(kw in question_lower for kw in ['food', 'meal', 'ration', 'nutrition'])
+
+        if is_tech:
+            q60a = row.get('Q60A')
+            # Prefer people who CAN use computers but can't afford them
+            if pd.notna(q60a) and float(q60a) == 1:
+                score += weights['item_specific'] * 80
+            age = row.get('AGE')
+            if pd.notna(age) and 16 <= float(age) <= 45:
+                score += weights['item_specific'] * 20
+        elif is_transport:
+            p17 = row.get('P17')
+            if pd.notna(p17) and float(p17) >= 2:
+                score += weights['item_specific'] * 100  # mobility difficulty
+            age = row.get('AGE')
+            if pd.notna(age) and 18 <= float(age) <= 65:
+                score += weights['item_specific'] * 20
+        elif is_food:
+            age = row.get('AGE')
+            if pd.notna(age):
+                if float(age) < 18 or float(age) > 60:
+                    score += weights['item_specific'] * 80  # children / elderly
+            rship = row.get('RSHIP')
+            if pd.notna(rship) and float(rship) == 1:
+                score += weights['item_specific'] * 40  # head of household
+        else:
+            # Generic: prefer working-age unemployed
+            q2 = row.get('Q2')
+            if pd.notna(q2) and float(q2) == 2:
+                score += weights['item_specific'] * 60  # not working
+
+        return round(score, 2)
+
+    # ==================================================================
+    #  RESOURCE ALLOCATION  — fully pre-computed, direct LLM call
+    # ==================================================================
+
+    def _handle_resource_allocation(self, question: str, num_items: int, item_type: str) -> str:
+        """
+        End-to-end resource allocation pipeline:
+        1. Score every person with income data
+        2. Rank by need score (descending)
+        3. Build beneficiary table + summary statistics
+        4. Send self-contained prompt to LLM (NO code generation)
+        5. Return LLM-formatted answer
+        """
+        df = self.df
+        question_lower = question.lower()
+
+        # ---- 1. All rows now have imputed income — use full dataset ----
+        pool = df.copy()
+        if len(pool) == 0:
+            return "⚠️ No data available for need-based resource allocation."
+
+        # ---- 2. Score & rank ----
+        print(f"📊 Scoring {len(pool)} candidates …")
+        pool['_need_score'] = pool.apply(
+            lambda r: self._compute_need_score(r, item_type, question_lower), axis=1
+        )
+        pool = pool.sort_values('_need_score', ascending=False)
+
+        n = min(num_items, len(pool))
+        beneficiaries = pool.head(n).reset_index(drop=False)
+
+        # ---- 3. Build translated beneficiary table ----
+        rows = []
+        for i, (_, row) in enumerate(beneficiaries.iterrows(), 1):
+            r = {'No': i, 'Index': int(row['index'])}
+            r['Income (LKR)'] = f"Rs. {row['Q45_A_1']:,.0f}" if pd.notna(row['Q45_A_1']) else 'N/A'
+            r['Need Score'] = row['_need_score']
+            if pd.notna(row.get('AGE')):
+                r['Age'] = int(row['AGE'])
+            if pd.notna(row.get('SEX')):
+                r['Sex'] = 'Male' if int(row['SEX']) == 1 else 'Female'
+            if pd.notna(row.get('EDU')):
+                r['Education'] = self.EDU_MAP.get(int(row['EDU']), f"Code {int(row['EDU'])}")
+            if pd.notna(row.get('SECTOR')):
+                r['Sector'] = SECTOR_MAP.get(int(row['SECTOR']), str(int(row['SECTOR'])))
+            if pd.notna(row.get('DISTRICT')):
+                r['District'] = DISTRICT_MAP.get(int(row['DISTRICT']), str(int(row['DISTRICT'])))
+            if pd.notna(row.get('Q16')):
+                r['Employment'] = EMPLOYMENT_STATUS.get(int(row['Q16']), str(int(row['Q16'])))
+            if pd.notna(row.get('Q47')):
+                r['Formality'] = 'Formal' if int(row['Q47']) == 1 else 'Informal'
+            # Disability flags
+            disability_labels = []
+            for dc, dl in [('P15','Vision'), ('P16','Hearing'), ('P17','Mobility'),
+                           ('P18','Cognition'), ('P19','Self-care'), ('P20','Communication')]:
+                dv = row.get(dc)
+                if pd.notna(dv) and int(dv) >= 2:
+                    sev = {2: 'Some', 3: 'A lot', 4: 'Cannot do'}.get(int(dv), '')
+                    disability_labels.append(f"{dl}:{sev}")
+            if disability_labels:
+                r['Disabilities'] = '; '.join(disability_labels)
+            rows.append(r)
+
+        table_df = pd.DataFrame(rows)
+        table_str = table_df.to_string(index=False) if len(table_df) <= 200 else table_df.head(200).to_string(index=False)
+
+        # ---- 4. Summary statistics ----
+        incomes = beneficiaries['Q45_A_1'].dropna()
+        sector_dist = {}
+        if 'SECTOR' in beneficiaries.columns:
+            for code, label in SECTOR_MAP.items():
+                cnt = int((beneficiaries['SECTOR'] == code).sum())
+                if cnt > 0:
+                    sector_dist[label] = cnt
+
+        district_dist = {}
+        if 'DISTRICT' in beneficiaries.columns:
+            for code, cnt in beneficiaries['DISTRICT'].value_counts().head(10).items():
+                district_dist[DISTRICT_MAP.get(int(code), str(int(code)))] = int(cnt)
+
+        gender_dist = {}
+        if 'SEX' in beneficiaries.columns:
+            gender_dist['Male'] = int((beneficiaries['SEX'] == 1).sum())
+            gender_dist['Female'] = int((beneficiaries['SEX'] == 2).sum())
+
+        summary = (
+            f"\n=== SUMMARY STATISTICS (PRE-COMPUTED — EXACT) ===\n"
+            f"Total beneficiaries selected: {n}\n"
+            f"Items to distribute: {num_items} {item_type}\n"
+            f"Average income: Rs. {incomes.mean():,.0f}\n"
+            f"Median income: Rs. {incomes.median():,.0f}\n"
+            f"Income range: Rs. {incomes.min():,.0f} – Rs. {incomes.max():,.0f}\n"
+            f"Average need score: {beneficiaries['_need_score'].mean():.1f} / 100\n"
+            f"Gender: {gender_dist}\n"
+            f"Sector distribution: {sector_dist}\n"
+            f"Top districts: {district_dist}\n"
+        )
+
+        # ---- 5. Overall dataset context ----
+        overall_income = df['Q45_A_1'].dropna()
+        dataset_context = (
+            f"\n=== DATASET CONTEXT ===\n"
+            f"Total records: {len(df)}\n"
+            f"Records with income data: {len(overall_income)}\n"
+            f"Overall income — Mean: Rs. {overall_income.mean():,.0f}, "
+            f"Median: Rs. {overall_income.median():,.0f}\n"
+            f"Sector: Urban={int((df['SECTOR']==1).sum())}, "
+            f"Rural={int((df['SECTOR']==2).sum())}, "
+            f"Estate={int((df['SECTOR']==3).sum())}\n"
+        )
+
+        # ---- 6. Build final prompt for LLM  (NO code generation) ----
+        final_prompt = f"""You are a resource-allocation analyst for Sri Lanka's Labour Force Survey (LFS-2023).
+
+USER QUESTION: {question}
+
+I have ALREADY identified the top {n} beneficiaries using a multi-factor need scoring system.
+The scoring considers: income (40%), education level (15%), disability burden (15%),
+employment informality (10%), sector deprivation (10%), and item-specific factors (10%).
+
+All data below is PRE-COMPUTED by Python and is 100% accurate.
+DO NOT recalculate. DO NOT return Python code. Only format and present the results.
+
+COLUMN MEANINGS (for reference):
+"""
+        # Add relevant column descriptions
+        relevant_cols = ['Q45_A_1', 'SEX', 'AGE', 'EDU', 'SECTOR', 'DISTRICT',
+                         'Q16', 'Q47', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20']
+        for col in relevant_cols:
+            if col in COLUMN_DESCRIPTIONS:
+                final_prompt += f"- {col.upper()}: {COLUMN_DESCRIPTIONS[col]}\n"
+
+        final_prompt += """
+VALUE MAPPINGS (use these to translate codes in your responses):
+
+=== ADMINISTRATIVE & IDENTIFICATION ===
+SECTOR: 1=Urban, 2=Rural, 3=Estate
+
+DISTRICT:
+  11=Colombo, 12=Gampaha, 13=Kalutara, 21=Kandy, 22=Matale, 23=Nuwara Eliya,
+  31=Galle, 32=Matara, 33=Hambantota, 41=Jaffna, 42=Kilinochchi, 43=Mannar,
+  44=Vavuniya, 45=Mullaitivu, 51=Batticaloa, 52=Ampara, 53=Trincomalee,
+  61=Kurunegala, 62=Puttalam, 71=Anuradhapura, 72=Polonnaruwa,
+  81=Badulla, 82=Monaragala, 91=Ratnapura, 92=Kegalle
+
+=== PERSONAL CHARACTERISTICS ===
+SEX: 1=Male, 2=Female
+MARITAL: 1=Never married, 2=Married, 3=Widowed, 4=Divorced, 5=Separated
+ETH: 1=Sinhala, 2=SL Tamil, 3=Indian Tamil, 4=Moor, 5=Malay, 6=Burgher, 9=Other
+
+=== EMPLOYMENT ===
+Q16: 1=Employee (public/private), 2=Employer, 3=Own account worker, 4=Contributing family worker
+Q47: 1=Formal, 2=Informal
+
+=== DISABILITY (P15-P20) ===
+1=No difficulty, 2=Some difficulty, 3=A lot of difficulty, 4=Cannot do at all
+
+IMPORTANT: All codes have ALREADY been translated in the table below. Present them as-is.
+"""
+
+        final_prompt += f"""
+=== BENEFICIARY ALLOCATION LIST (ALL {n} beneficiaries) ===
+
+{table_str}
+
+{summary}
+{dataset_context}
+
+FOR RESOURCE ALLOCATION OF {num_items} {item_type.upper()}:
+
+CRITICAL: You MUST show ALL {n} beneficiaries. DO NOT abbreviate with "..." or skip rows.
+
+Your task:
+1. Present ALL {n} beneficiaries in a clear numbered table
+2. For each beneficiary, show: Row number, Dataset Index, Income, Need Score,
+   Age, Sex, Education, Sector, District, Employment status, and any disabilities
+3. After the complete list, provide:
+   - Total beneficiaries: {n}
+   - Average income of selected group vs overall population
+   - Need score statistics
+   - Distribution by sector, district (top 5), gender
+   - Brief allocation rationale (why these people were selected)
+   - 2-3 policy recommendations
+
+REMEMBER: Show EVERY SINGLE ROW. No abbreviations. All numbers are pre-computed and exact.
+DO NOT return Python code. Return ONLY the formatted analysis.
+
+Provide your analysis:"""
+
+        # ---- 7. Call LLM directly (bypass PandasQueryEngine) ----
+        if self.llm is not None:
+            try:
+                print(f"🤖 Sending allocation prompt to LLM ({len(final_prompt)} chars) …")
+                response = self.llm.complete(final_prompt)
+                answer = str(response)
+                self.last_question = question
+                self.last_answer = answer
+                return answer
+            except Exception as e:
+                print(f"⚠️ LLM call failed: {e}")
+                # Fall through to pre-computed fallback
+
+        # ---- Fallback: return pre-computed data directly ----
+        fallback = f"📊 Resource Allocation: {num_items} {item_type}\n\n"
+        fallback += f"BENEFICIARY LIST ({n} people, ranked by need score):\n\n"
+        fallback += table_str + "\n"
+        fallback += summary
+        fallback += dataset_context
+        return fallback
+
+    # ==================================================================
+    #  PRE-COMPUTED STATISTICS  (for general queries)
+    # ==================================================================
+
+    def _compute_statistics(self, question: str) -> str:
+        """Pre-compute relevant statistics so the LLM uses exact numbers."""
+        df = self.df
+        parts = []
+        ql = question.lower()
+
+        parts.append(f"DATASET: {len(df)} rows × {len(df.columns)} columns")
+        parts.append(f"\nAge: min={df['AGE'].min()}, max={df['AGE'].max()}, "
+                     f"mean={df['AGE'].mean():.1f}, median={df['AGE'].median():.0f}")
+        parts.append(f"Gender: Male(1)={int((df['SEX']==1).sum())}, "
+                     f"Female(2)={int((df['SEX']==2).sum())}")
+        parts.append(f"Sector: Urban(1)={int((df['SECTOR']==1).sum())}, "
+                     f"Rural(2)={int((df['SECTOR']==2).sum())}, "
+                     f"Estate(3)={int((df['SECTOR']==3).sum())}")
+
+        # Income
+        if any(kw in ql for kw in ['income','salary','poverty','poor','rich','wage',
+                                    'earning','resource','allocat','beneficiar',
+                                    'give','distribut','q45']):
+            inc = df['Q45_A_1'].dropna()
+            if len(inc):
+                parts.append(f"\nINCOME (Q45_A_1) — {len(inc)} with data / {len(df)} total:")
+                parts.append(f"  Mean: Rs. {inc.mean():,.0f}  | Median: Rs. {inc.median():,.0f}")
+                parts.append(f"  Min: Rs. {inc.min():,.0f}  | Max: Rs. {inc.max():,.0f}")
+                parts.append(f"  25th: Rs. {inc.quantile(.25):,.0f} | 75th: Rs. {inc.quantile(.75):,.0f}")
+                parts.append(f"  <20k: {int((inc<20000).sum())} | <10k: {int((inc<10000).sum())} | Zero: {int((inc==0).sum())}")
+
+        # Employment
+        if any(kw in ql for kw in ['employ','work','job','occupation','formal',
+                                    'informal','labor','labour','q16','q2','q47']):
+            parts.append("\nEMPLOYMENT:")
+            q2 = df['Q2'].dropna()
+            parts.append(f"  Worked last 7d (Q2): Yes={int((q2==1).sum())}, No={int((q2==2).sum())}")
+            for c, l in EMPLOYMENT_STATUS.items():
+                cnt = int((df['Q16']==c).sum())
+                if cnt: parts.append(f"  Q16={c} ({l}): {cnt}")
+            parts.append(f"  Formal(Q47=1): {int((df['Q47']==1).sum())}, "
+                         f"Informal(Q47=2): {int((df['Q47']==2).sum())}")
+
+        # Education
+        if any(kw in ql for kw in ['education','school','degree','literacy',
+                                    'edu','literat','computer','digital']):
+            parts.append("\nEDUCATION:")
+            edu = df['EDU'].dropna()
+            for c in sorted(edu.unique()):
+                parts.append(f"  EDU={int(c)} ({self.EDU_MAP.get(int(c), f'Grade {int(c)}')}): "
+                             f"{int((edu==c).sum())}")
+            if 'Q60A' in df.columns:
+                parts.append(f"  Computer literate (Q60A=1): {int((df['Q60A']==1).sum())}")
+                parts.append(f"  Not computer literate (Q60A=2): {int((df['Q60A']==2).sum())}")
+
+        # Disability
+        if any(kw in ql for kw in ['disab','difficult','vision','hear','walk',
+                                    'mobil','self-care','communicat','p15','p16',
+                                    'p17','p18','p19','p20']):
+            parts.append("\nDISABILITY:")
+            for col, lbl in [('P15','Vision'),('P16','Hearing'),('P17','Mobility'),
+                              ('P18','Cognition'),('P19','Self-care'),('P20','Communication')]:
+                if col in df.columns:
+                    p = df[col].dropna()
+                    parts.append(f"  {col} ({lbl}): Some+={int((p>=2).sum())}, "
+                                 f"A lot+={int((p>=3).sum())}, Cannot={int((p==4).sum())}")
+
+        # District
+        if any(kw in ql for kw in ['district','region','province','colombo','kandy','galle','jaffna']):
+            parts.append("\nDISTRICT:")
+            for c in sorted(df['DISTRICT'].dropna().unique()):
+                parts.append(f"  {int(c)} ({DISTRICT_MAP.get(int(c),'?')}): "
+                             f"{int((df['DISTRICT']==c).sum())}")
+
+        # Ethnicity
+        if any(kw in ql for kw in ['ethnic','sinhala','tamil','moor','malay','burgher']):
+            parts.append("\nETHNICITY:")
+            for c, l in ETHNICITY_MAP.items():
+                cnt = int((df['ETH']==c).sum())
+                if cnt: parts.append(f"  {c} ({l}): {cnt}")
+
+        # Marital
+        if any(kw in ql for kw in ['marital','married','widow','divorced','single']):
+            parts.append("\nMARITAL:")
+            for c, l in MARITAL_MAP.items():
+                cnt = int((df['MARITAL']==c).sum())
+                if cnt: parts.append(f"  {c} ({l}): {cnt}")
+
+        return "\n".join(parts)
+
+    def _detect_relevant_columns(self, question_lower: str) -> list:
+        """Return columns relevant to the question (used for context)."""
+        kw_map = {
+            'income':['Q45_A_1','Q47','Q2','Q16'], 'salary':['Q45_A_1','Q16'],
+            'poverty':['Q45_A_1','SECTOR','DISTRICT','EDU'], 'employ':['Q2','Q16','Q20','Q47','Q8'],
+            'education':['EDU','CUEDU','DEGREE'], 'disab':['P15','P16','P17','P18','P19','P20'],
+            'difficult':['P15','P16','P17','P18','P19','P20'], 'vision':['P15'],
+            'hear':['P16'], 'walk':['P17'], 'mobil':['P17'],
+            'computer':['Q60A','Q60B'], 'digital':['Q60A','Q60B','Q61','Q64'],
+            'internet':['Q61','Q64'], 'gender':['SEX'], 'male':['SEX'], 'female':['SEX'],
+            'ethnic':['ETH'], 'religion':['REL'], 'district':['DISTRICT'],
+            'sector':['SECTOR'], 'age':['AGE'], 'literacy':['SIN','TAMIL','ENG'],
+            'marital':['MARITAL'],
+        }
+        cols = set()
+        for kw, cl in kw_map.items():
+            if kw in question_lower:
+                cols.update(cl)
+        return list(cols) or ['AGE','SEX','SECTOR','DISTRICT','EDU','Q45_A_1','Q2','Q16']
+
+    # ==================================================================
+    #  INSTRUCTION STRING  (for PandasQueryEngine — general queries only)
+    # ==================================================================
+
+    def _build_instruction_str(self) -> str:
+        s = ("You are a data analyst for Sri Lanka's Labour Force Survey (LFS-2023).\n"
+             "Answer by writing Python code against the DataFrame 'df'.\n\n"
+             "DATASET: ~18,937 rows × 128 columns.\n\n"
+             "COLUMN MEANINGS:\n")
+        for col, desc in COLUMN_DESCRIPTIONS.items():
+            s += f"- {col}: {desc}\n"
+
+        s += "\n=== VALUE MAPPINGS ===\n"
+        s += "SECTOR: " + ", ".join(f"{k}={v}" for k, v in SECTOR_MAP.items()) + "\n"
+        s += "DISTRICT: " + ", ".join(f"{k}={v}" for k, v in DISTRICT_MAP.items()) + "\n"
+        s += "Q16: " + ", ".join(f"{k}={v}" for k, v in EMPLOYMENT_STATUS.items()) + "\n"
+        s += "ETH: " + ", ".join(f"{k}={v}" for k, v in ETHNICITY_MAP.items()) + "\n"
+        s += "REL: " + ", ".join(f"{k}={v}" for k, v in RELIGION_MAP.items()) + "\n"
+        s += "MARITAL: " + ", ".join(f"{k}={v}" for k, v in MARITAL_MAP.items()) + "\n"
+        s += "P15-P20: 1=None, 2=Some, 3=A lot, 4=Cannot do\n"
+
+        s += """
+RULES:
+- Output ONLY raw Python — no markdown, no ``` blocks.
+- Use only df, pd, np (already imported). UPPERCASE column names only.
+- Q45_A_1 already numeric; use .dropna() when filtering income.
+- Translate codes to labels in print(): e.g. print("District: 11 (Colombo)").
+- Show counts AND percentages. Use INCLUSIVE filters.
+"""
+        return s
+
+    # ==================================================================
+    #  MAIN ENTRY POINT
+    # ==================================================================
+
     def analyze_data(self, question: str):
-        """Answer questions about the data using LlamaIndex PandasQueryEngine"""
-        print(f"\n🔍 Processing question: {question}")
-        
+        """Route question to resource-allocation or general analysis."""
+        print(f"\n🔍 Processing: {question}")
+
         if self.df is None:
             return "⚠️ No data loaded."
-        
-        # Handle simple column/structure queries directly
-        question_lower = question.lower()
-        if any(keyword in question_lower for keyword in ['columns', 'column', 'fields', 'structure', 'schema']):
-            columns = self.df.columns.tolist()
-            return f"📊 Dataset has {len(columns)} columns:\n" + "\n".join([f"• {col}" for col in columns])
-        
-        if 'shape' in question_lower or 'size' in question_lower:
-            shape = self.df.shape
-            return f"📊 Dataset shape: {shape[0]:,} rows × {shape[1]} columns"
-        
-        if self.query_engine is None:
-            return "⚠️ Query engine not initialized."
-        
-        try:
-            response = self.query_engine.query(question)
-            self.last_question = question
-            self.last_answer = str(response)
-            return str(response)
-        except Exception as e:
-            error_msg = f"⚠️ Error: {str(e)}"
-            print(error_msg)
-            return error_msg
-    
 
+        ql = question.lower()
+
+        # Quick answers
+        if any(kw in ql for kw in ['columns', 'column names', 'fields', 'structure', 'schema']):
+            info = [f"• {c}: {COLUMN_DESCRIPTIONS.get(c, 'Survey variable')}"
+                    for c in self.df.columns]
+            return f"📊 {len(self.df.columns)} columns:\n" + "\n".join(info)
+
+        if 'shape' in ql or ('how many' in ql and 'row' in ql):
+            return f"📊 {self.df.shape[0]:,} rows × {self.df.shape[1]} columns"
+
+        # Detect type
+        analysis_type, params = self._detect_analysis_type(ql)
+
+        # ---- Resource allocation (primary path) ----
+        if analysis_type == "resource_allocation":
+            return self._handle_resource_allocation(
+                question,
+                params.get("num_items", 10),
+                params.get("item_type", "items"),
+            )
+
+        # ---- General query (secondary path via PandasQueryEngine) ----
+        if self.query_engine is None and self.llm is None:
+            return "⚠️ Query engine not initialized."
+
+        stats = self._compute_statistics(question)
+        enhanced = f"""{question}
+
+=== PRE-COMPUTED STATISTICS (EXACT — calculated by Python) ===
+{stats}
+
+INSTRUCTIONS:
+1. Use the pre-computed statistics above — they are EXACT.
+2. You may generate Python code for additional breakdowns not in the stats.
+3. Translate ALL codes to meanings. Be specific, cite actual numbers.
+4. DO NOT fabricate numbers."""
+
+        # Try PandasQueryEngine first
+        if self.query_engine is not None:
+            try:
+                response = self.query_engine.query(enhanced)
+                answer = self._translate_codes_in_response(str(response))
+                self.last_question = question
+                self.last_answer = answer
+                return answer
+            except Exception as e:
+                print(f"⚠️ PandasQueryEngine error: {e}")
+
+        # Fallback: direct LLM
+        if self.llm is not None:
+            try:
+                response = self.llm.complete(enhanced)
+                answer = self._translate_codes_in_response(str(response))
+                self.last_question = question
+                self.last_answer = answer
+                return answer
+            except Exception as e:
+                print(f"⚠️ Direct LLM error: {e}")
+
+        return f"Here are the relevant statistics:\n\n{stats}"
+
+    # ==================================================================
+    #  POST-PROCESSING
+    # ==================================================================
+
+    def _translate_codes_in_response(self, text: str) -> str:
+        """Translate remaining numeric codes in LLM output."""
+        text = re.sub(r'\bSector:\s*1\b', 'Sector: 1 (Urban)', text)
+        text = re.sub(r'\bSector:\s*2\b', 'Sector: 2 (Rural)', text)
+        text = re.sub(r'\bSector:\s*3\b', 'Sector: 3 (Estate)', text)
+        for code, name in DISTRICT_MAP.items():
+            text = re.sub(rf'\bDistrict:\s*{code}\b', f'District: {code} ({name})', text)
+        text = re.sub(r'\bSex:\s*1\b', 'Sex: 1 (Male)', text)
+        text = re.sub(r'\bSex:\s*2\b', 'Sex: 2 (Female)', text)
+        return text
+
+    # ==================================================================
+    #  CLUSTER & INSIGHT HELPERS  (interactive mode)
+    # ==================================================================
+
+    def ask_about_clusters(self, question: str) -> str:
+        if not self.has_clusters:
+            return "⚠️ No cluster information in the dataset."
+        return self.analyze_data(f"Regarding the cluster_id column: {question}")
+
+    def compare_clusters(self) -> str:
+        if not self.has_clusters:
+            return "⚠️ No cluster information in the dataset."
+        return self.analyze_data(
+            "Compare all clusters: count, mean age, mean income, dominant sector per cluster_id."
+        )
+
+    def get_insights(self, topic: str = None) -> str:
+        if topic:
+            return self.analyze_data(f"Key insights about {topic} in the dataset.")
+        return self.analyze_data(
+            "5 key insights covering income, employment, education, disability, regions."
+        )
 
 
 # Main execution
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='NLP Query Engine for Cluster Analysis')
     parser.add_argument('--mode', choices=['classic', 'llm'], default='llm',
                         help='Query mode: classic (rule-based) or llm (AI-powered)')
     parser.add_argument('--model', type=str, help='Path to model pickle file')
-    
+
     args = parser.parse_args()
-    
+
     # Load model
     if args.model:
         model_path = args.model
     else:
         model_path = os.path.join('..', 'model', 'skilldev_model.pkl')
-    
+
     candidate_paths = [
         model_path,
         os.path.join('..', 'model', 'skilldev_model.pkl'),
         os.path.join('model', 'skilldev_model.pkl'),
     ]
-    
+
     valid_path = None
     for path in candidate_paths:
         if os.path.exists(path):
             valid_path = path
             break
-    
-    if not valid_path:
-        print("❌ Model not found!")
-        exit(1)
-    
-    print(f"✅ Using model from: {valid_path}\n")
-    
-    # Initialize engine
+
     if args.mode == 'classic':
+        if not valid_path:
+            print("❌ Model not found!")
+            exit(1)
+        print(f"✅ Using model from: {valid_path}\n")
         engine = NLPClusterQueryEngine(valid_path)
         engine.interactive_query()
     else:
-        engine = LLMQueryEngine(model_path=valid_path)
+        # LLM mode can work with CSV directly (no model needed)
+        if valid_path:
+            print(f"✅ Using model from: {valid_path}\n")
+            engine = LLMQueryEngine(model_path=valid_path)
+        else:
+            print("📂 No model found, loading CSV directly...\n")
+            engine = LLMQueryEngine()
+
         print("\n" + "=" * 70)
         print("💬 LLM Query Interface")
         print("=" * 70)
         print("Commands: /clusters, /compare, /insights [topic], quit\n")
-        
+
         while True:
             query = input("📝 Your query: ").strip()
-            
+
             if query.lower() in ['quit', 'exit']:
                 print("✅ Goodbye!")
                 break
-            
+
             if not query:
                 continue
-            
+
             if query.startswith('/'):
                 cmd_parts = query.split(' ', 1)
                 cmd = cmd_parts[0].lower()
                 cmd_arg = cmd_parts[1] if len(cmd_parts) > 1 else None
-                
+
                 if cmd == '/clusters':
                     question = cmd_arg or "What can you tell me about the clusters?"
                     print(engine.ask_about_clusters(question))
@@ -634,8 +1169,8 @@ if __name__ == "__main__":
                 elif cmd == '/insights':
                     print(engine.get_insights(cmd_arg))
                 else:
-                    print("⚠️ Unknown command")
+                    print("⚠️ Unknown command. Use /clusters, /compare, /insights, or quit.")
             else:
                 print(engine.analyze_data(query))
-            
+
             print()
