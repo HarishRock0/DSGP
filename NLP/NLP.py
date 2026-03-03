@@ -649,8 +649,71 @@ class LLMQueryEngine:
         df = self.df
         question_lower = question.lower()
 
-        # ---- 1. All rows now have imputed income — use full dataset ----
-        pool = df.copy()
+        # ---- 1-A. Determine target cluster via LLM + safe keyword matching ----
+        # Maps simple lowercase keywords → exact cluster_label strings in the CSV.
+        keyword_map = {
+            'skill gap':          'High Skill Gap - Needs Job Matching',
+            'digitally excluded': 'Digitally Excluded - Needs Tech Training',
+            'vulnerable':         'Economically Vulnerable - Needs Social Safety Net',
+            'stable':             'Stable Workforce - Needs Leadership/Advanced Skills',
+        }
+
+        # Safest default if nothing matches (most likely to benefit from resources)
+        target_cluster_exact = 'Economically Vulnerable - Needs Social Safety Net'
+
+        if self.llm is not None and 'cluster_label' in df.columns:
+            try:
+                available_labels = df['cluster_label'].dropna().unique().tolist()
+                cluster_prompt = (
+                    f"You are helping allocate resources to Sri Lankan workers.\n"
+                    f"User question: {question}\n\n"
+                    f"Available clusters:\n" +
+                    "\n".join(f"  - {lbl}" for lbl in available_labels) +
+                    "\n\nWhich single cluster should be prioritised for this "
+                    "resource allocation? Reply with ONLY the cluster name, "
+                    "with no extra text or punctuation."
+                )
+                llm_response = str(self.llm.complete(cluster_prompt))
+                llm_text = llm_response.lower()
+                for keyword, cluster_name in keyword_map.items():
+                    if keyword in llm_text:
+                        target_cluster_exact = cluster_name
+                        break
+                print(f"🎯 Target cluster (LLM): {target_cluster_exact}")
+            except Exception as e:
+                print(f"⚠️ Cluster detection LLM call failed ({e}), "
+                      f"falling back to keyword scan of question")
+                for keyword, cluster_name in keyword_map.items():
+                    if keyword in question_lower:
+                        target_cluster_exact = cluster_name
+                        break
+                print(f"🎯 Target cluster (keyword fallback): {target_cluster_exact}")
+        else:
+            # No LLM available or no cluster_label column — match against question text
+            for keyword, cluster_name in keyword_map.items():
+                if keyword in question_lower:
+                    target_cluster_exact = cluster_name
+                    break
+            print(f"🎯 Target cluster (question keyword): {target_cluster_exact}")
+
+        # ---- 1-B. Filter to target cluster, sort closest-to-centroid first ----
+        if 'cluster_label' in df.columns:
+            filtered_df = df[df['cluster_label'] == target_cluster_exact].copy()
+            if len(filtered_df) == 0:
+                print(f"⚠️ Cluster '{target_cluster_exact}' not found in data — "
+                      "using full dataset as fallback")
+                filtered_df = df.copy()
+
+            # Sort by proximity to centroid so the most representative individuals
+            # are selected first (ascending = closest first)
+            if 'distance_to_center' in filtered_df.columns:
+                pool = filtered_df.sort_values(by='distance_to_center', ascending=True)
+            else:
+                pool = filtered_df
+        else:
+            # CSV predates cluster columns — fall back to full dataset
+            pool = df.copy()
+
         if len(pool) == 0:
             return "⚠️ No data available for need-based resource allocation."
 
