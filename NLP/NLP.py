@@ -727,6 +727,42 @@ class LLMQueryEngine:
         n = min(num_items, len(pool))
         beneficiaries = pool.head(n).reset_index(drop=False)
 
+        # ---- 2-B. Outlier Guardrail — Confidence Score ----
+        # Measures how representative the selected candidates are by their
+        # average distance to the cluster centroid.
+        if 'distance_to_center' in beneficiaries.columns:
+            avg_dist = round(float(beneficiaries['distance_to_center'].mean()), 2)
+        else:
+            avg_dist = None
+
+        if avg_dist is None:
+            trust_level = 'Unknown'
+            trust_guidance = ('The distance_to_center column is unavailable, so '
+                              'representativeness cannot be mathematically assessed. '
+                              'Apply standard manual verification.')
+        elif avg_dist < 0.5:
+            trust_level = 'High'
+            trust_guidance = ('These individuals are PERFECT ARCHETYPES for this '
+                              'intervention — they sit extremely close to the cluster '
+                              'centroid and are highly representative of the lifestyle '
+                              'and needs profile. You may allocate resources with high '
+                              'confidence.')
+        elif avg_dist < 1.5:
+            trust_level = 'Moderate'
+            trust_guidance = ('These are GOOD MATCHES but show some individual variance '
+                              'from the cluster centre. Most will benefit strongly from '
+                              'the intervention; a small minority may have edge-case '
+                              'circumstances worth reviewing.')
+        else:
+            trust_level = 'Low'
+            trust_guidance = ('These individuals are PERIPHERAL OUTLIERS who only '
+                              'partially match the cluster profile. Be transparent that '
+                              'they fall at the boundary of the target group and may '
+                              'require manual case-by-case verification before resources '
+                              'are committed.')
+
+        print(f'🔍 Outlier Guardrail — avg distance: {avg_dist}, trust: {trust_level}')
+
         # ---- 3. Build translated beneficiary table ----
         rows = []
         for i, (_, row) in enumerate(beneficiaries.iterrows(), 1):
@@ -879,6 +915,13 @@ Your task:
    - Distribution by sector, district (top 5), gender
    - Brief allocation rationale (why these people were selected)
    - 2-3 policy recommendations
+
+=== MATHEMATICAL CONFIDENCE / OUTLIER GUARDRAIL ===
+Average Distance to Cluster Centroid: {avg_dist if avg_dist is not None else 'N/A'}
+Trust Level: {trust_level}
+
+You MUST incorporate this confidence level into your response:
+{trust_guidance}
 
 REMEMBER: Show EVERY SINGLE ROW. No abbreviations. All numbers are pre-computed and exact.
 DO NOT return Python code. Return ONLY the formatted analysis.
