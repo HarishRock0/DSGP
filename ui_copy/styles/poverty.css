@@ -1,0 +1,22 @@
+/* ui/styles/poverty.css */
+
+/* TARGET ONLY THE CHART CONTAINER */
+div[data-testid="stPlotlyChart"] {
+    background-color: #ffffff;
+    border: 2px solid #3b82f6; /* Subtle blue border */
+    border-radius: 15px;
+    padding: 10px;
+    box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2);
+    transition: transform 0.3s ease;
+}
+
+/* Optional: Add a hover effect to the chart area */
+div[data-testid="stPlotlyChart"]:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.3);
+}
+
+/* Ensure the rest of the app stays standard */
+.main {
+    background-color: transparent;
+}

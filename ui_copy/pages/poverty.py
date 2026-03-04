@@ -731,6 +731,7 @@ recs = st.session_state.recommendations
 if not recs:
     st.markdown("""
     <div style="text-align:center;padding:3rem 1rem;">
+        <div style="font-size:2rem;margin-bottom:0.5rem;">🗺️</div>
         <div style="font-size:0.95rem;color:#6b7280;font-family:Inter,sans-serif;">
             Enter a preference and click
             <strong style="color:#7c3aed;">Get Recommendations</strong> to begin.

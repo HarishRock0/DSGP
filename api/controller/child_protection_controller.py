@@ -1,11 +1,11 @@
+import os
 from fastapi import FastAPI
 from pydantic import BaseModel
-from child_protection_service import ChildProtectionService
-import os
+from service.child_protection_service import ChildProtectionService
 
 app = FastAPI()
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 child_protection_service = ChildProtectionService(project_root)
 
 

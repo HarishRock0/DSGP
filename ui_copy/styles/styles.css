@@ -1,0 +1,132 @@
+/* === DARK THEME - Sri Lanka District Insights Dashboard === */
+
+:root {
+    --bg: #0f1117;
+    --card: #161b22;
+    --text: #e6edf3;
+    --text-secondary: #8b949e;
+    --border: #30363d;
+    --primary: #58a6ff;
+    --accent: #39c9a0;
+    --warning: #f85149;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.stApp {
+    background-color: var(--bg);
+    padding: 1rem;
+}
+
+/* Main container card */
+.main .block-container {
+    background-color: var(--card);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border);
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Headers */
+h1, h2, h3, h4 {
+    color: var(--text) !important;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+}
+
+h1 {
+    font-size: 2.5rem;
+    text-align: center;
+    background: linear-gradient(90deg, #58a6ff, #39c9a0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+}
+
+/* Selectbox & inputs */
+.stSelectbox > div > div {
+    background-color: #21262d !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    color: var(--text) !important;
+}
+
+.stSelectbox label, .stSlider label {
+    color: var(--text);
+    font-weight: 500;
+}
+
+/* Buttons */
+.stButton > button {
+    background: linear-gradient(135deg, #58a6ff, #1f6feb);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 0.6rem 1.5rem;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(88, 166, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.stButton > button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(88, 166, 255, 0.5);
+    background: linear-gradient(135deg, #7bb8ff, #3d8bff);
+}
+
+/* Metrics */
+.stMetric {
+    background-color: var(--card);
+    background-color: #21262d;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.stMetric > div > div {
+    color: var(--text) !important;
+}
+
+.stMetric label {
+    color: var(--text-secondary) !important;
+    font-size: 0.9rem;
+}
+
+/* Dataframes */
+.css-1y0t9it, .stDataFrame {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background-color: #21262d;
+}
+
+/* Plotly charts background */
+.js-plotly-plot .plotly {
+    background-color: #161b22 !important;
+}
+
+/* Sidebar */
+.stMarkdown, .stText {
+    color: var(--text-secondary);
+}
+
+/* Footer */
+footer { visibility: hidden; }
+
+/* Custom card class for extra sections */
+.insight-card {
+    background-color: #21262d;
+    padding: 1.5rem;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    margin: 1rem 0;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
