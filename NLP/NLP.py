@@ -473,7 +473,7 @@ class LLMQueryEngine:
                 self.query_engine = PandasQueryEngine(
                     df=self.df,
                     instruction_str=self._build_instruction_str(),
-                    verbose=True,
+                    verbose=False,
                     synthesize_response=True,
                 )
                 print("✅ PandasQueryEngine ready (general queries)")
