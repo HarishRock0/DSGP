@@ -1,14 +1,14 @@
 # NLP Query Engine - LFS-2023 Data Analysis
 
-Clean, production-ready LLM query engine for analyzing Sri Lanka's Labor Force Survey 2023 data using DeepSeek-R1 via Hugging Face API.
+Clean, production-ready LLM query engine for analyzing Sri Lanka's Labor Force Survey 2023 data using Llama 3.3 70B via Groq Cloud API.
 
 ## Features
 
-✅ **AI-Powered Analysis** - Uses DeepSeek-R1 model via Hugging Face Inference API  
+✅ **AI-Powered Analysis** - Uses Llama 3.3 70B model via Groq Cloud API  
 ✅ **LFS-2023 Expert** - Pre-configured with comprehensive column descriptions  
 ✅ **Cluster Analysis** - Automatically detects and analyzes cluster data  
 ✅ **Natural Language Queries** - Ask questions in plain English  
-✅ **Secure** - Uses environment variables for API tokens  
+✅ **Secure** - Uses environment variables for API keys  
 
 ## Setup
 
@@ -17,15 +17,17 @@ Clean, production-ready LLM query engine for analyzing Sri Lanka's Labor Force S
 pip install -r requirement.txt
 ```
 
-### 2. Set Hugging Face Token
+### 2. Set Groq API Key
 ```bash
 # Windows PowerShell
-setx HUGGINGFACE_TOKEN "your_token_here"
+$env:GROQ_API_KEY = "gsk_YOUR_KEY_HERE"
 
+# Or permanent (Windows)
+setx GROQ_API_KEY "gsk_YOUR_KEY_HERE"
 # Then restart terminal
 ```
 
-Get your token from: https://huggingface.co/settings/tokens
+Get your API key from: https://console.groq.com/keys
 
 ### 3. Run
 ```bash
@@ -41,7 +43,7 @@ python NLP/NLP.py --model path/to/skilldev_model.pkl
 
 ### Interactive Mode
 ```
-💬 LLM Query Engine - DeepSeek-R1 via Hugging Face API
+💬 LLM Query Engine - Llama 3.3 70B via Groq Cloud API
 Ask questions about your LFS-2023 data!
 
 📝 Your query: How many people have vision difficulties?
@@ -82,10 +84,10 @@ Ask questions about your LFS-2023 data!
 ```
 LLMQueryEngine
 ├── Data Loading (model pickle or CSV)
-├── Hugging Face API Configuration
-│   ├── Model: deepseek-ai/DeepSeek-R1
-│   ├── Token from environment variable
-│   └── Online inference (no local download)
+├── Groq Cloud API Configuration
+│   ├── Model: Llama 3.3 70B Versatile
+│   ├── API key from environment variable
+│   └── Online inference via Groq Cloud
 ├── LlamaIndex PandasQueryEngine
 │   ├── Direct DataFrame access
 │   ├── Column descriptions
@@ -106,7 +108,7 @@ LLMQueryEngine
 ## Configuration
 
 ### Environment Variables
-- `HUGGINGFACE_TOKEN` (required): Your Hugging Face API token
+- `GROQ_API_KEY` (required): Your Groq Cloud API key
 
 ### Command Line Arguments
 - `--model`: Path to model pickle file (optional)
@@ -116,8 +118,9 @@ LLMQueryEngine
 
 Core packages:
 - `llama-index` - LLM framework
-- `llama-index-llms-huggingface-api` - Hugging Face integration
+- `llama-index-llms-groq` - Groq Cloud API integration
 - `llama-index-experimental` - PandasQueryEngine
+- `groq` - Groq API client
 - `pandas`, `numpy` - Data processing
 - `streamlit` - Web interface (optional)
 
@@ -132,17 +135,17 @@ See [requirement.txt](../requirement.txt) for full list.
 
 ## Performance
 
-- **Model**: DeepSeek-R1 (online API)
-- **No local download**: Runs entirely via API
+- **Model**: Llama 3.3 70B Versatile (via Groq Cloud)
+- **No local download**: Runs entirely via Groq API
 - **Internet required**: Yes (for API calls)
 - **Response time**: 2-10 seconds depending on query complexity
 
 ## Troubleshooting
 
 ### "Query engine not initialized"
-- Check `HUGGINGFACE_TOKEN` is set
+- Check `GROQ_API_KEY` is set
 - Verify internet connection
-- Ensure token has 'inference' permission
+- Ensure Groq API key is valid
 
 ### "No data loaded"
 - Verify model file exists at specified path

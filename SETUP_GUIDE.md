@@ -1,21 +1,14 @@
 # 🚀 Quick Setup Guide - NLP Query Engine
 
-## ⚠️ IMPORTANT: Token Security Issue
-
-Your previous Hugging Face token was **exposed on GitHub** and has been removed from the code for security.
-
-**You MUST regenerate a new token before using this application!**
-
 ## 📋 Setup Steps
 
-### Step 1: Regenerate Your Hugging Face Token
+### Step 1: Get Your Groq Cloud API Key
 
-1. Go to: https://huggingface.co/settings/tokens
-2. Click **"New token"**
-3. Name it (e.g., "DSGP-NLP")
-4. Select **"Read"** permission (sufficient for inference)
-5. Click **"Generate token"**
-6. **Copy the token** (you won't see it again!)
+1. Go to: https://console.groq.com/keys
+2. Sign in or create a free account
+3. Click **"Create API Key"**
+4. Name it (e.g., "DSGP-NLP")
+5. **Copy the API key** (starts with `gsk_`)
 
 ### Step 2: Set Environment Variable
 
@@ -23,7 +16,7 @@ Your previous Hugging Face token was **exposed on GitHub** and has been removed 
 
 Open PowerShell in this folder and run:
 ```powershell
-$env:HUGGINGFACE_TOKEN = "hf_YOUR_NEW_TOKEN_HERE"
+$env:GROQ_API_KEY = "gsk_YOUR_KEY_HERE"
 python3.10 NLP/NLP.py --model model/skilldev_model.pkl
 ```
 
@@ -32,11 +25,11 @@ python3.10 NLP/NLP.py --model model/skilldev_model.pkl
 1. Open `run_nlp.bat` in a text editor
 2. Find this line:
    ```bat
-   REM set HUGGINGFACE_TOKEN=your_actual_token_here
+   REM set GROQ_API_KEY=gsk_YOUR_KEY_HERE
    ```
-3. Remove `REM` and replace with your token:
+3. Remove `REM` and replace with your key:
    ```bat
-   set HUGGINGFACE_TOKEN=hf_YOUR_NEW_TOKEN_HERE
+   set GROQ_API_KEY=gsk_YOUR_KEY_HERE
    ```
 4. Save and double-click `run_nlp.bat` to run
 
@@ -45,8 +38,8 @@ python3.10 NLP/NLP.py --model model/skilldev_model.pkl
 1. Open Windows Settings → System → About → Advanced system settings
 2. Click "Environment Variables"
 3. Under "User variables", click "New"
-4. Variable name: `HUGGINGFACE_TOKEN`
-5. Variable value: `hf_YOUR_NEW_TOKEN_HERE`
+4. Variable name: `GROQ_API_KEY`
+5. Variable value: `gsk_YOUR_KEY_HERE`
 6. Click OK
 7. **Restart your terminal/PowerShell**
 8. Run: `python3.10 NLP/NLP.py --model model/skilldev_model.pkl`
@@ -60,7 +53,7 @@ pip list | findstr llama-index
 
 You should see:
 - `llama-index`
-- `llama-index-llms-huggingface-api`
+- `llama-index-llms-groq`
 - `llama-index-experimental`
 
 If not, install:
@@ -77,9 +70,8 @@ python3.10 NLP/NLP.py --model model/skilldev_model.pkl
 
 You should see:
 ```
-✅ LlamaIndex PandasQueryEngine ready with Hugging Face API!
-📌 Using model: deepseek-ai/DeepSeek-R1 (ONLINE - Inference API)
-🌐 All queries will be processed via Hugging Face API
+✅ PandasQueryEngine ready (general queries)
+✅ Direct LLM ready (resource allocation)
 ```
 
 Try a test query:
@@ -89,19 +81,18 @@ Try a test query:
 
 ## 🔧 Troubleshooting
 
-### Error: "❌ Hugging Face token not found!"
+### Error: "Missing GROQ_API_KEY environment variable"
 
 **Cause:** Environment variable not set
 
-**Fix:** Follow Step 2 above to set `HUGGINGFACE_TOKEN`
+**Fix:** Follow Step 2 above to set `GROQ_API_KEY`
 
 ### Error: "Query engine not initialized"
 
 **Possible causes:**
-1. Token not set → Set environment variable
-2. Invalid/expired token → Regenerate token
+1. API key not set → Set environment variable
+2. Invalid API key → Regenerate key at https://console.groq.com/keys
 3. No internet connection → Check connectivity
-4. Model access denied → Ensure token has "Read" permission
 
 ### Error: "No module named 'llama_index'"
 
@@ -117,24 +108,19 @@ pip install -r requirement.txt
 python3.10 NLP/NLP.py --csv data/LFS-2023.csv
 ```
 
-## 📁 What Was Cleaned
+## 📁 Tech Stack
 
-During code cleanup, the following were removed:
-- ✅ Hardcoded API tokens (security risk)
-- ✅ Ollama offline setup files (not needed)
-- ✅ Test files (test_*.py)
-- ✅ Duplicate setup scripts
-- ✅ Unused imports (torch, transformers for local GPU)
-- ✅ NLPClusterQueryEngine class (unused)
-
-Everything now uses **Hugging Face Inference API** only.
+- **LLM Provider:** Groq Cloud API (Llama 3.3 70B Versatile)
+- **LLM Framework:** LlamaIndex with PandasQueryEngine
+- **Cluster Analysis:** Local transformers (BART-large-MNLI, MiniLM)
+- **No HuggingFace API token required** — all LLM inference runs through Groq
 
 ## 📞 Need Help?
 
 If you still encounter issues:
 
-1. Check your token is valid: https://huggingface.co/settings/tokens
-2. Verify model access: https://huggingface.co/deepseek-ai/DeepSeek-R1
+1. Check your API key is valid: https://console.groq.com/keys
+2. Verify Groq service status: https://status.groq.com
 3. Test internet connection
 4. Review error messages carefully
 
@@ -142,13 +128,13 @@ If you still encounter issues:
 
 **Run with model:**
 ```powershell
-$env:HUGGINGFACE_TOKEN = "hf_YOUR_TOKEN"
+$env:GROQ_API_KEY = "gsk_YOUR_KEY"
 python3.10 NLP/NLP.py --model model/skilldev_model.pkl
 ```
 
 **Run with CSV:**
 ```powershell
-$env:HUGGINGFACE_TOKEN = "hf_YOUR_TOKEN"
+$env:GROQ_API_KEY = "gsk_YOUR_KEY"
 python3.10 NLP/NLP.py --csv data/LFS-2023.csv
 ```
 
@@ -159,4 +145,4 @@ run_nlp.bat
 
 ---
 
-**Security Reminder:** Never commit tokens to Git! They are now in `.gitignore`.
+**Security Reminder:** Never commit API keys to Git! They are now in `.gitignore`.

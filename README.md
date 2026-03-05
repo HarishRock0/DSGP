@@ -2,7 +2,7 @@
 
 ## Sri Lanka District Decision-Support & Governance Platform
 
-An AI-powered social-welfare analytics platform for Sri Lanka, covering **poverty analysis**, **child protection**, and **mental health** — built with a multi-agent LangChain architecture, Groq LLM inference, machine-learning clustering, and an interactive Streamlit dashboard.
+An AI-powered social-welfare analytics platform for Sri Lanka, covering **poverty analysis**, **child protection**, and **mental health** — built with a multi-agent LangChain architecture, Groq Cloud LLM inference, machine-learning clustering, and an interactive Streamlit dashboard.
 
 ---
 
@@ -11,7 +11,7 @@ An AI-powered social-welfare analytics platform for Sri Lanka, covering **povert
 | Feature | Description |
 |---------|-------------|
 | **Multi-Agent Architecture** | LangChain-based coordinator, NLP recommendation, and insight-generation agents |
-| **LLM-Powered Queries** | Groq API with Llama 3.3 70B for natural-language data analysis |
+| **LLM-Powered Queries** | Groq Cloud API with Llama 3.3 70B for natural-language data analysis |
 | **Smart Resource Allocation** | Multi-factor need scoring (income, education, disability, informality, sector) with outlier guardrails |
 | **NLP Clustering Engine** | Zero-shot classification (BART-large-MNLI) + semantic similarity (MiniLM) for cluster analysis |
 | **SkillDev ML Model** | KMeans clustering (k=4) identifying intervention-based workforce segments |
@@ -42,8 +42,8 @@ An AI-powered social-welfare analytics platform for Sri Lanka, covering **povert
 │  DatabaseManager (SQLite) · SQLQueryGenerator            │
 ├─────────────────────────────────────────────────────────┤
 │            NLP / ML Engines                              │
-│  LLMQueryEngine (Groq + LlamaIndex PandasQueryEngine)   │
-│  NLPClusterQueryEngine (HuggingFace transformers)       │
+│  LLMQueryEngine (Groq Cloud API + LlamaIndex)           │
+│  NLPClusterQueryEngine (local transformers models)      │
 │  SkillDev KMeans Model (scikit-learn)                   │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -65,18 +65,16 @@ pip install -r requirement.txt
 | Variable | Required For | How to Get |
 |----------|-------------|------------|
 | `GROQ_API_KEY` | LLM queries (Llama 3.3 70B) | https://console.groq.com/keys |
-| `HUGGINGFACE_TOKEN` | HuggingFace model inference | https://huggingface.co/settings/tokens |
 
 **PowerShell (quick test):**
 ```powershell
 $env:GROQ_API_KEY = "gsk_YOUR_KEY_HERE"
-$env:HUGGINGFACE_TOKEN = "hf_YOUR_TOKEN_HERE"
 ```
 
 **Permanent (Windows):**  
 Set them in *System → Advanced system settings → Environment Variables*.
 
-📖 See [SETUP_GUIDE.md](SETUP_GUIDE.md) for detailed token setup instructions.
+📖 See [SETUP_GUIDE.md](SETUP_GUIDE.md) for detailed setup instructions.
 
 ### 3. Launch the Dashboard
 
@@ -101,7 +99,7 @@ run_nlp.bat
 
 The CLI supports two engines that are selected automatically based on query type:
 
-### LLM Engine (Groq — Llama 3.3 70B)
+### LLM Engine (Groq Cloud API — Llama 3.3 70B)
 
 General data analysis and resource allocation queries:
 
@@ -112,7 +110,7 @@ General data analysis and resource allocation queries:
 📝 Your query: Compare employment rates by gender
 ```
 
-### Cluster Engine (HuggingFace — zero-shot + semantic)
+### Cluster Engine (Local Transformers — zero-shot + semantic)
 
 Cluster analysis using the trained SkillDev model:
 
@@ -153,7 +151,7 @@ DSGP/
 │       └── poverty_insight_signals.py
 │
 ├── NLP/                           # NLP & LLM query engines
-│   ├── NLP.py                     # LLMQueryEngine (Groq) + NLPClusterQueryEngine
+│   ├── NLP.py                     # LLMQueryEngine (Groq Cloud API) + NLPClusterQueryEngine
 │   └── README.md                  # NLP module documentation
 │
 ├── ML/                            # Machine learning
@@ -212,8 +210,7 @@ DSGP/
 
 | Variable | Purpose |
 |----------|---------|
-| `GROQ_API_KEY` | Groq API key for Llama 3.3 70B LLM inference |
-| `HUGGINGFACE_TOKEN` | HuggingFace API token for model downloads |
+| `GROQ_API_KEY` | Groq Cloud API key for Llama 3.3 70B LLM inference |
 
 ### Data Sources
 
@@ -251,7 +248,7 @@ python test_query.py
 
 | Category | Technologies |
 |----------|-------------|
-| **LLM / NLP** | Groq API (Llama 3.3 70B), LlamaIndex, HuggingFace Transformers, sentence-transformers |
+| **LLM / NLP** | Groq Cloud API (Llama 3.3 70B), LlamaIndex, PyTorch Transformers (local), sentence-transformers |
 | **ML** | scikit-learn, PyTorch, SciPy |
 | **Agents** | LangChain Core (Runnable interface) |
 | **Data** | Pandas, NumPy, SQLite, openpyxl |
@@ -265,10 +262,9 @@ python test_query.py
 | Problem | Solution |
 |---------|----------|
 | `GROQ_API_KEY not found` | Set the `GROQ_API_KEY` environment variable — see [Setup Guide](SETUP_GUIDE.md) |
-| `HUGGINGFACE_TOKEN not found` | Set the `HUGGINGFACE_TOKEN` environment variable |
-| `Query engine not initialized` | Ensure API keys are set, restart terminal, check internet |
+| `Query engine not initialized` | Ensure `GROQ_API_KEY` is set, restart terminal, check internet |
 | `No data loaded` | Verify `data/LFS-2023.csv` exists |
-| Import errors | Run `pip install -r requirement.txt` and install missing packages (`torch`, `sentence-transformers`, `langchain-core`) |
+| Import errors | Run `pip install -r requirement.txt` and install missing packages (`torch`, `transformers`, `sentence-transformers`, `langchain-core`) |
 | Model file not found | Ensure `model/skilldev_model.pkl` and `model/poverty_model.pkl` exist |
 
 ---
@@ -306,7 +302,6 @@ This is an academic project. For questions or collaboration, please contact the 
 - [Requirements](requirement.txt)
 
 **External Links:**
-- [Groq Console](https://console.groq.com)
-- [Hugging Face](https://huggingface.co)
+- [Groq Cloud Console](https://console.groq.com)
 - [LlamaIndex](https://docs.llamaindex.ai)
 - [LangChain](https://python.langchain.com)
