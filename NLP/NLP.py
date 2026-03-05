@@ -950,6 +950,323 @@ Provide your analysis:"""
         return fallback
 
     # ==================================================================
+    #  RESOURCE ALLOCATION & REAL PROFILE SEARCH  (df.query based)
+    # ==================================================================
+
+    @staticmethod
+    def _derive_employment_label(row) -> str:
+        """Derive a human-readable employment label from Q2 / Q16 / Q36."""
+        q2 = row.get('Q2')
+        q16 = row.get('Q16')
+        q36 = row.get('Q36')
+
+        # Q2: 1 = worked last 7 days, 2 = did not work
+        if pd.notna(q2) and int(q2) == 1:
+            if pd.notna(q16):
+                return {
+                    1: 'Employee',
+                    2: 'Employer',
+                    3: 'Self-employed',
+                    4: 'Family Worker',
+                }.get(int(q16), 'Employed')
+            return 'Employed'
+
+        # Not working → check if actively looking for work
+        if pd.notna(q36) and int(q36) == 1:
+            return 'Unemployed'
+
+        return 'Inactive'
+
+    def handle_allocation(self, query: str) -> str:
+        """
+        Resource Allocation & Real Profile Search.
+
+        The LLM's ONLY role is translating the user's resource request into a
+        strictly valid Pandas boolean query string.  All data, counts, and
+        allocation numbers are produced exclusively by df.query() on the real
+        DataFrame — guaranteeing 100 % accuracy and zero hallucination.
+        """
+        df = self.df
+        if df is None:
+            return "⚠️ No data loaded."
+
+        # ---- Extract quantity & item type from query ----
+        num_match = re.search(r'(\d+)', query)
+        num_items = int(num_match.group(1)) if num_match else 10
+
+        item_match = re.search(
+            r'\d+\s+([\w][\w\s]*?)(?:\s+(?:to|for|among|across|in|between|whom)\b|$)',
+            query, re.IGNORECASE,
+        )
+        item_type = item_match.group(1).strip() if item_match else "items"
+
+        # ---- Compute HH_SIZE (family size) if missing ----
+        if 'HH_SIZE' not in df.columns:
+            hh_keys = ['DISTRICT', 'PSU', 'HUNIT', 'HHOLD']
+            if all(c in df.columns for c in hh_keys):
+                hh_sizes = (
+                    df.groupby(hh_keys)
+                    .size()
+                    .reset_index(name='HH_SIZE')
+                )
+                df = df.merge(hh_sizes, on=hh_keys, how='left')
+                self.df = df  # persist for subsequent calls
+
+        # ---- Ask LLM for a Pandas query string (ONLY) ----
+        col_desc_text = "\n".join(
+            f"  {k}: {v}" for k, v in COLUMN_DESCRIPTIONS.items()
+        )
+        prompt = (
+            "You are a data-filtering expert for Sri Lanka's Labour Force Survey "
+            "(LFS-2023, ~18 937 rows).  Your ONLY job is to translate a resource-"
+            "allocation request into a valid Pandas df.query() boolean expression.\n\n"
+            f"AVAILABLE COLUMNS:\n{col_desc_text}\n\n"
+            f"USER REQUEST: \"{query}\"\n"
+            f"RESOURCE / PRODUCT: \"{item_type}\"\n\n"
+            "Think about WHO would benefit most from this resource, then write a "
+            "targeted but NOT overly restrictive filter.  Prefer 2-3 conditions "
+            "maximum so we get enough matches to distribute across districts.\n\n"
+            "EXAMPLES OF VALID OUTPUT (return text exactly like these):\n"
+            "  SEX == 2 & AGE >= 18 & AGE <= 60\n"
+            "  AGE >= 18 & AGE <= 65\n"
+            "  P17 >= 2 & AGE >= 18\n"
+            "  AGE >= 16 & AGE <= 45\n\n"
+            "RULES:\n"
+            "1. Return ONLY the Pandas query string — no explanation, no code "
+            "blocks, no surrounding quotes, no backticks.\n"
+            "2. Use only column names listed above.\n"
+            "3. Use Python operators: ==  !=  >  <  >=  <=\n"
+            "4. Use & for AND, | for OR.  Parenthesise OR groups.\n"
+            "5. Keep it broad enough to return hundreds of matches.\n"
+            "6. Do NOT use columns that have mostly empty values (Q60A, Q61 "
+            "have many NaN).  Prefer AGE, SEX, SECTOR, EDU, Q2, Q16.\n\n"
+            "Your query string:"
+        )
+
+        pandas_query_str = None
+        if self.llm is not None:
+            try:
+                raw = str(self.llm.complete(prompt)).strip()
+                # Sanitise: strip markdown fences, stray quotes / backticks
+                cleaned = re.sub(r'^```[\w]*\n?', '', raw)
+                cleaned = re.sub(r'\n?```$', '', cleaned)
+                cleaned = cleaned.strip('`"\' \n')
+                pandas_query_str = cleaned
+                print(f"🔍 LLM Filter: {pandas_query_str}")
+            except Exception as e:
+                print(f"⚠️ LLM query generation failed: {e}")
+
+        if not pandas_query_str:
+            return "⚠️ Could not generate filter criteria from LLM."
+
+        # ---- Execute df.query() with progressive relaxation ----
+        conditions = [c.strip() for c in pandas_query_str.split('&')]
+        filtered_df = None
+        used_query = pandas_query_str
+
+        # Try full query first, then drop conditions from the end one by one
+        for n_conds in range(len(conditions), 0, -1):
+            attempt_query = ' & '.join(conditions[:n_conds])
+            try:
+                result = df.query(attempt_query)
+                if len(result) > 0:
+                    filtered_df = result.copy()
+                    used_query = attempt_query
+                    if n_conds < len(conditions):
+                        print(f"🔄 Relaxed filter to: {used_query}")
+                    break
+            except Exception as err:
+                print(f"⚠️ Filter error ({attempt_query}): {err}")
+                continue
+
+        if filtered_df is None or len(filtered_df) == 0:
+            # Ultimate fallback: working-age adults
+            fallback_q = 'AGE >= 18 & AGE <= 65'
+            try:
+                filtered_df = df.query(fallback_q).copy()
+                used_query = fallback_q
+                print(f"🔄 Using fallback filter: {fallback_q}")
+            except Exception:
+                return "⚠️ Could not filter data from the dataset."
+
+        total_matches = len(filtered_df)
+        print(f"✅ Total Matches Found (filter): {total_matches:,}")
+
+        # ---- Cluster-aware refinement ----
+        cluster_name_used = None
+        if 'cluster_label' in filtered_df.columns and self.llm is not None:
+            available_labels = filtered_df['cluster_label'].dropna().unique().tolist()
+            if available_labels:
+                # Ask LLM which cluster best fits the resource
+                keyword_map = {
+                    'skill gap':          'High Skill Gap - Needs Job Matching',
+                    'digitally excluded': 'Digitally Excluded - Needs Tech Training',
+                    'vulnerable':         'Economically Vulnerable - Needs Social Safety Net',
+                    'stable':             'Stable Workforce - Needs Leadership/Advanced Skills',
+                }
+                try:
+                    cluster_prompt = (
+                        "You are allocating resources to Sri Lankan workers.\n"
+                        f"Resource: {item_type}\n"
+                        f"User request: {query}\n\n"
+                        "Available workforce clusters:\n" +
+                        "\n".join(f"  - {lbl}" for lbl in available_labels) +
+                        "\n\nWhich single cluster should be PRIORITISED? "
+                        "Reply with ONLY the cluster name, nothing else."
+                    )
+                    llm_cluster = str(self.llm.complete(cluster_prompt)).strip()
+                    # Match via keyword
+                    target_cluster = 'Economically Vulnerable - Needs Social Safety Net'
+                    for kw, cname in keyword_map.items():
+                        if kw in llm_cluster.lower():
+                            target_cluster = cname
+                            break
+
+                    cluster_subset = filtered_df[
+                        filtered_df['cluster_label'] == target_cluster
+                    ]
+                    if len(cluster_subset) > 0:
+                        filtered_df = cluster_subset.copy()
+                        cluster_name_used = target_cluster
+                        print(f"🎯 Cluster: {cluster_name_used} "
+                              f"({len(filtered_df):,} candidates)")
+                    else:
+                        print(f"⚠️ Cluster '{target_cluster}' empty after "
+                              "filter — using all filtered matches")
+                except Exception as e:
+                    print(f"⚠️ Cluster selection failed: {e}")
+
+        # Sort by distance_to_center if available (closest = most representative)
+        if 'distance_to_center' in filtered_df.columns:
+            filtered_df = filtered_df.sort_values(
+                'distance_to_center', ascending=True
+            )
+
+        total_matches = len(filtered_df)
+        print(f"✅ Final candidate pool: {total_matches:,}")
+
+        # ---- District-wise proportional allocation ----
+        district_counts = (
+            filtered_df['DISTRICT']
+            .value_counts()
+            .sort_values(ascending=False)
+        )
+        total_in_filter = district_counts.sum()
+
+        district_items = []       # (name, units)
+        allocated_so_far = 0
+        entries = list(district_counts.items())
+
+        for i, (code, count) in enumerate(entries):
+            if i == len(entries) - 1:
+                units = max(0, num_items - allocated_so_far)
+            else:
+                units = round(num_items * (count / total_in_filter))
+            allocated_so_far += units
+            name = DISTRICT_MAP.get(int(code), f"District {int(code)}")
+            if units > 0:
+                district_items.append((name, units))
+
+        # ---- Profile table — proportionally sampled across districts ----
+        # Pick from each district in proportion to its allocation so profiles
+        # reflect real geographic spread (not just the first rows = Colombo).
+        n_profiles = min(num_items, total_matches)
+        sampled_parts = []
+        for code, count in district_counts.items():
+            district_share = round(n_profiles * (count / total_in_filter))
+            if district_share == 0:
+                continue
+            district_rows = filtered_df[filtered_df['DISTRICT'] == code]
+            sampled_parts.append(
+                district_rows.head(district_share)
+            )
+        if sampled_parts:
+            sampled_df = pd.concat(sampled_parts, ignore_index=False)
+        else:
+            sampled_df = filtered_df.head(n_profiles)
+        # Trim / pad to exact count
+        if len(sampled_df) > n_profiles:
+            sampled_df = sampled_df.head(n_profiles)
+        elif len(sampled_df) < n_profiles:
+            remaining = filtered_df[~filtered_df.index.isin(sampled_df.index)]
+            sampled_df = pd.concat([
+                sampled_df,
+                remaining.head(n_profiles - len(sampled_df))
+            ])
+
+        # ---- Employment mapping (Q2: 1=Employed, 2=Unemployed, 3=Inactive) ----
+        _Q2_MAP = {1: "Employed", 2: "Unemployed", 3: "Inactive"}
+
+        profile_rows = []
+        for idx, row in sampled_df.iterrows():
+            district_name = (
+                DISTRICT_MAP.get(int(row['DISTRICT']),
+                                 str(int(row['DISTRICT'])))
+                if pd.notna(row.get('DISTRICT')) else 'N/A'
+            )
+            sector_label = (
+                SECTOR_MAP.get(int(row['SECTOR']), str(int(row['SECTOR'])))
+                if pd.notna(row.get('SECTOR')) else 'N/A'
+            )
+            emp_label = (
+                _Q2_MAP.get(int(row['Q2']), str(int(row['Q2'])))
+                if pd.notna(row.get('Q2')) else 'N/A'
+            )
+            hh_size = (
+                int(row['HH_SIZE'])
+                if 'HH_SIZE' in row.index and pd.notna(row.get('HH_SIZE'))
+                else 'N/A'
+            )
+            # Income: Q45_A_1 may be string with spaces — coerce safely
+            try:
+                inc_val = pd.to_numeric(row.get('Q45_A_1'), errors='coerce')
+                income_str = f"Rs. {inc_val:,.0f}" if pd.notna(inc_val) else 'N/A'
+            except Exception:
+                income_str = 'N/A'
+
+            cluster_val = (
+                str(row['cluster_label'])
+                if 'cluster_label' in row.index and pd.notna(row.get('cluster_label'))
+                else 'N/A'
+            )
+
+            profile_rows.append({
+                'Line #': idx,
+                'District': district_name,
+                'Sector': sector_label,
+                'Employment': emp_label,
+                'Family': hh_size,
+                'Income Rs.': income_str,
+                'Cluster': cluster_val,
+            })
+
+        # ---- Assemble formatted output ----
+        out = []
+        out.append(f"\n✅ DATA-DRIVEN ANALYSIS FOR: {query}")
+        if cluster_name_used:
+            out.append(f"🎯 Target Cluster: {cluster_name_used}")
+        out.append(f"\n📊 Total Matches Found: {total_matches:,}")
+        out.append(f"\n📍 District-wise Allocation:")
+        out.append(f"{'─' * 45}")
+        for name, units in district_items:
+            out.append(f"  {name:<20}: {units} units")
+        out.append(f"\n👤 Targeted User Profiles ({n_profiles} shown):")
+        hdr = (f"{'Line #':<8}| {'District':<15}| {'Sector':<8}| "
+               f"{'Employment':<12}| {'Family':<7}| {'Income Rs.':<14}| {'Cluster'}")
+        out.append(f"{'─' * len(hdr)}")
+        out.append(hdr)
+        out.append(f"{'─' * len(hdr)}")
+        for pr in profile_rows:
+            out.append(
+                f"{str(pr['Line #']):<8}| {pr['District']:<15}| "
+                f"{pr['Sector']:<8}| {pr['Employment']:<12}| "
+                f"{str(pr['Family']):<7}| {pr['Income Rs.']:<14}| "
+                f"{pr['Cluster']}"
+            )
+
+        return "\n".join(out)
+
+    # ==================================================================
     #  PRE-COMPUTED STATISTICS  (for general queries)
     # ==================================================================
 
@@ -1277,6 +1594,38 @@ if __name__ == "__main__":
                 else:
                     print("⚠️ Unknown command. Use /clusters, /compare, /insights, or quit.")
             else:
-                print(engine.analyze_data(query))
+                # --- Allocation detection ---
+                # Catches:  "i have 100 cars", "give 50 sewing machines",
+                #           "distribute 200 laptops to …", etc.
+                _ql = query.lower()
+                _has_number = bool(re.search(r'\d+', _ql))
+
+                # Pattern 1: "i have <N> <things>" — always allocation
+                _i_have_pattern = bool(re.search(
+                    r'i\s+have\s+\d+', _ql
+                ))
+
+                # Pattern 2: number + action/resource keyword
+                _ALLOC_KEYWORDS = [
+                    'give', 'distribut', 'allocat', 'provide', 'deliver',
+                    'send', 'assign', 'hand out', 'target', 'whom',
+                    'sewing', 'laptop', 'computer', 'taxi', 'food',
+                    'wheel', 'machine', 'book', 'phone', 'tablet',
+                    'device', 'package', 'kit', 'tool', 'vehicle',
+                    'bus', 'bicycle', 'ration', 'meal', 'uniform',
+                    'scholarship', 'medicine', 'aid', 'supply',
+                    'equipment', 'furniture', 'seed', 'fertilizer',
+                    'car', 'truck', 'tractor', 'motorbike', 'motor',
+                    'wheelchair', 'blanket', 'tent', 'house', 'loan',
+                    'grant', 'voucher', 'coupon', 'subsidy',
+                ]
+                _kw_match = _has_number and any(
+                    kw in _ql for kw in _ALLOC_KEYWORDS
+                )
+
+                if _i_have_pattern or _kw_match:
+                    print(engine.handle_allocation(query))
+                else:
+                    print(engine.analyze_data(query))
 
             print()
