@@ -9,6 +9,9 @@ from signals.mental_health_nlp_signals import MentalHealthNLPSignals
 
 from agents.nlp_recommendation_agent import NLPRecommendationAgent
 from agents.insight_generator_agent import InsightGeneratorAgent
+from agents.resource_allocation_agent import ResourceAllocationAgent
+from signals.allocation.poverty_resource_signals import BudgetAllocationRequest
+
 
 
 class CoordinatorAgent(Runnable):
@@ -49,3 +52,29 @@ class CoordinatorAgent(Runnable):
         return {
             "recommendations": rec_signal.districts
         }
+
+    def allocate_budget(self, total_budget: float, top_n=None, tier_filter=None) -> dict:
+        """
+        Allocate a budget across districts and return the allocation breakdown.
+
+        Parameters
+        ----------
+        total_budget : float   Total budget in Rs.
+        top_n        : int     Optional - return only top-N highest-allocation districts.
+        tier_filter  : str     Optional - 'CRITICAL', 'HIGH', 'MODERATE', 'LOW'.
+        """
+        request = BudgetAllocationRequest(
+            total_budget=total_budget, top_n=top_n, tier_filter=tier_filter)
+        response = self.allocation_agent.invoke(request)
+        return {
+            "total_budget": response.total_budget,
+            "equity_floor_pct": response.equity_floor_pct,
+            "floor_per_district": response.floor_per_district,
+            "allocations": [a.model_dump() for a in response.allocations],
+            "summary": response.summary,
+        }
+
+    def get_risk_summary(self) -> dict:
+        """Return all districts grouped by risk tier."""
+        sig = self.allocation_agent.get_risk_summary()
+        return sig.model_dump()
