@@ -53,11 +53,11 @@ def test_nlp_with_sql():
     try:
         # Import directly from NLP module
         sys.path.insert(0, 'NLP')
-        from NLP import LLMQueryEngine
+        from NLP.Engines import LLMQ
         
         # Initialize engine with database
         print("\n🔄 Initializing NLP Query Engine...")
-        engine = LLMQueryEngine(db_path="db/lfs_database.db")
+        engine = LLMQ(db_path="db/lfs_database.db")
         
         if engine.sql_gen:
             print("\n✅ NLP engine initialized with SQL support!")
