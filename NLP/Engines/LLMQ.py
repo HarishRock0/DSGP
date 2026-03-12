@@ -1,3 +1,36 @@
+import os
+import re
+import pickle
+import pandas as pd
+import numpy as np
+import warnings
+from difflib import get_close_matches
+
+warnings.filterwarnings('ignore')
+
+try:
+    from llama_index.experimental.query_engine import PandasQueryEngine
+    from llama_index.core import Settings
+    try:
+        from llama_index.llms.groq import Groq
+        _LLAMA_INDEX_IMPORT_ERROR = None
+    except ImportError as _groq_err:
+        Groq = None
+        _LLAMA_INDEX_IMPORT_ERROR = _groq_err
+except ImportError as _llamaindex_err:
+    PandasQueryEngine = None
+    Settings = None
+    Groq = None
+    _LLAMA_INDEX_IMPORT_ERROR = _llamaindex_err
+
+from .constants import (
+    COLUMN_DESCRIPTIONS,
+    SECTOR_MAP,
+    DISTRICT_MAP,
+    EMPLOYMENT_STATUS,
+)
+
+
 class LLMQueryEngine:
     """
     LLM-powered query engine for Sri Lanka LFS-2023 data.
@@ -33,6 +66,34 @@ class LLMQueryEngine:
                 model = pickle.load(f)
             self.df = model.df.copy() if hasattr(model, 'df') and model.df is not None else None
             self.has_clusters = self.df is not None and 'cluster_id' in self.df.columns
+
+            # Derive cluster_label from cluster_id using model.cluster_mapping
+            if self.has_clusters and hasattr(model, 'cluster_mapping'):
+                self.df['cluster_label'] = self.df['cluster_id'].map(model.cluster_mapping)
+
+            # Use pre-computed centroid distances from CSV if available (preferred)
+            if self.df is not None and 'distance_to_center' in self.df.columns:
+                print("✅ centroid distances loaded from CSV (pre-computed)")
+            elif (self.has_clusters
+                    and hasattr(model, 'kmeans')
+                    and hasattr(model, 'weighted_data')
+                    and model.weighted_data is not None):
+                # Fallback: compute at runtime if not in CSV
+                try:
+                    centroids = model.kmeans.cluster_centers_
+                    ids = self.df['cluster_id'].values
+                    if model.weighted_data.shape[0] == len(self.df):
+                        distances = np.linalg.norm(
+                            model.weighted_data - centroids[ids], axis=1
+                        )
+                        self.df['distance_to_center'] = distances
+                        print("✅ centroid distances computed at runtime (consider pre-computing in pipeline)")
+                    else:
+                        print("⚠️  weighted_data row count mismatch — skipping centroid distance computation")
+                except Exception as e:
+                    print(f"⚠️  Could not compute centroid distances: {e}")
+            else:
+                print("⚠️  distance_to_center not available — nearest-centroid selection disabled")
         elif os.path.exists(csv_path):
             print(f"📂 Loading data from {csv_path}")
             self.df = pd.read_csv(csv_path)
@@ -230,6 +291,69 @@ class LLMQueryEngine:
         return round(score, 2)
 
     # ==================================================================
+    #  CLUSTER PROFILE DECODER  (for enriching LLM cluster selection)
+    # ==================================================================
+
+    def _build_cluster_profiles(self) -> str:
+        """
+        Decode cluster centroids into human-readable demographic summaries
+        for inclusion in the Groq cluster-selection prompt.
+        Returns a formatted string describing each cluster.
+        """
+        if not self.has_clusters or self.df is None:
+            return "No cluster information available."
+
+        lines = []
+        cluster_ids = sorted(self.df['cluster_id'].dropna().unique().astype(int))
+
+        for cid in cluster_ids:
+            cluster_df = self.df[self.df['cluster_id'] == cid]
+            n = len(cluster_df)
+
+            # Label
+            label = "Unknown"
+            if 'cluster_label' in cluster_df.columns:
+                label = cluster_df['cluster_label'].mode().iloc[0] if len(cluster_df) > 0 else "Unknown"
+
+            # Demographics
+            avg_age = round(cluster_df['AGE'].mean(), 1) if 'AGE' in cluster_df.columns else 'N/A'
+
+            pct_male = (
+                round((cluster_df['SEX'] == 1).sum() / n * 100, 1)
+                if 'SEX' in cluster_df.columns else 'N/A'
+            )
+
+            sector_mode = (
+                SECTOR_MAP.get(int(cluster_df['SECTOR'].mode().iloc[0]), 'N/A')
+                if 'SECTOR' in cluster_df.columns and len(cluster_df) > 0 else 'N/A'
+            )
+
+            emp_mode = (
+                EMPLOYMENT_STATUS.get(int(cluster_df['Q16'].mode().iloc[0]), 'N/A')
+                if 'Q16' in cluster_df.columns and cluster_df['Q16'].notna().any() else 'N/A'
+            )
+
+            avg_income = 'N/A'
+            if 'Q45_A_1' in cluster_df.columns:
+                inc = pd.to_numeric(cluster_df['Q45_A_1'], errors='coerce').dropna()
+                if len(inc) > 0:
+                    avg_income = f"LKR {round(inc.mean()):,}"
+
+            pct_no_computer = (
+                round((cluster_df['Q60A'] == 2).sum() / n * 100, 1)
+                if 'Q60A' in cluster_df.columns else 'N/A'
+            )
+
+            lines.append(
+                f"  Cluster {cid} — \"{label}\" ({n:,} people)\n"
+                f"    avg_age={avg_age}, male={pct_male}%, sector={sector_mode}\n"
+                f"    employment={emp_mode}, avg_income={avg_income}\n"
+                f"    no_computer_access={pct_no_computer}%"
+            )
+
+        return "\n".join(lines)
+
+    # ==================================================================
     #  RESOURCE ALLOCATION  — fully pre-computed, direct LLM call
     # ==================================================================
 
@@ -260,22 +384,50 @@ class LLMQueryEngine:
         if self.llm is not None and 'cluster_label' in df.columns:
             try:
                 available_labels = df['cluster_label'].dropna().unique().tolist()
+                cluster_profiles_text = self._build_cluster_profiles()
                 cluster_prompt = (
                     f"You are helping allocate resources to Sri Lankan workers.\n"
                     f"User question: {question}\n\n"
-                    f"Available clusters:\n" +
+                    f"Cluster demographic profiles:\n{cluster_profiles_text}\n\n"
+                    f"Available cluster names:\n" +
                     "\n".join(f"  - {lbl}" for lbl in available_labels) +
-                    "\n\nWhich single cluster should be prioritised for this "
-                    "resource allocation? Reply with ONLY the cluster name, "
-                    "with no extra text or punctuation."
+                    "\n\nBased on the demographic profiles above, which single cluster is the "
+                    "best match for this resource allocation request? Reply with ONLY the "
+                    "exact cluster name from the available list, no extra text."
                 )
                 llm_response = str(self.llm.complete(cluster_prompt))
-                llm_text = llm_response.lower()
-                for keyword, cluster_name in keyword_map.items():
-                    if keyword in llm_text:
-                        target_cluster_exact = cluster_name
-                        break
-                print(f"🎯 Target cluster (LLM): {target_cluster_exact}")
+                llm_text = llm_response.strip()
+
+                # 1. Exact match
+                if llm_text in available_labels:
+                    target_cluster_exact = llm_text
+                    print(f"🎯 Target cluster (exact match): {target_cluster_exact}")
+
+                # 2. Fuzzy match — handles truncated or slightly rephrased LLM output
+                elif get_close_matches(llm_text, available_labels, n=1, cutoff=0.6):
+                    target_cluster_exact = get_close_matches(llm_text, available_labels, n=1, cutoff=0.6)[0]
+                    print(f"🎯 Target cluster (fuzzy match '{llm_text}' → '{target_cluster_exact}')")
+
+                # 3. Keyword fallback
+                else:
+                    llm_lower = llm_text.lower()
+                    matched = False
+                    for keyword, cluster_name in keyword_map.items():
+                        if keyword in llm_lower and cluster_name in available_labels:
+                            target_cluster_exact = cluster_name
+                            matched = True
+                            break
+                    if matched:
+                        print(f"🎯 Target cluster (keyword fallback): {target_cluster_exact}")
+                    else:
+                        print(f"⚠️  Could not match LLM response '{llm_text}' to any cluster — using default")
+                        # Default to cluster with most people as a safe fallback
+                        target_cluster_exact = (
+                            self.df['cluster_label'].value_counts().index[0]
+                            if 'cluster_label' in self.df.columns and len(self.df) > 0
+                            else available_labels[0]
+                        )
+                        print(f"🎯 Target cluster (auto-default): {target_cluster_exact}")
             except Exception as e:
                 print(f"⚠️ Cluster detection LLM call failed ({e}), "
                       f"falling back to keyword scan of question")
@@ -336,14 +488,14 @@ class LLMQueryEngine:
             trust_guidance = ('The distance_to_center column is unavailable, so '
                               'representativeness cannot be mathematically assessed. '
                               'Apply standard manual verification.')
-        elif avg_dist < 0.5:
+        elif avg_dist < 2.0:
             trust_level = 'High'
             trust_guidance = ('These individuals are PERFECT ARCHETYPES for this '
                               'intervention — they sit extremely close to the cluster '
                               'centroid and are highly representative of the lifestyle '
                               'and needs profile. You may allocate resources with high '
                               'confidence.')
-        elif avg_dist < 1.5:
+        elif avg_dist < 3.5:
             trust_level = 'Moderate'
             trust_guidance = ('These are GOOD MATCHES but show some individual variance '
                               'from the cluster centre. Most will benefit strongly from '
@@ -546,7 +698,7 @@ Provide your analysis:"""
         return fallback
 
     # ==================================================================
-    #  RESOURCE ALLOCATION & REAL PROFILE SEARCH  (df.query based)
+    #  DIRECT ALLOCATION ENTRY POINT  (called by NLP.py after BART routing)
     # ==================================================================
 
     @staticmethod
@@ -573,294 +725,35 @@ Provide your analysis:"""
 
         return 'Inactive'
 
-    def handle_allocation(self, query: str) -> str:
+    def handle_allocation(self, question: str, num_items: int = None, item_type: str = None) -> str:
         """
-        Resource Allocation & Real Profile Search.
-
-        The LLM's ONLY role is translating the user's resource request into a
-        strictly valid Pandas boolean query string.  All data, counts, and
-        allocation numbers are produced exclusively by df.query() on the real
-        DataFrame — guaranteeing 100 % accuracy and zero hallucination.
+        Direct entry point for resource allocation — called by NLP.py when BART
+        has already confirmed the intent. Skips re-detection entirely.
+        
+        If num_items is None, extracts the number from the question text.
+        If item_type is None, extracts the item from the question text.
         """
-        df = self.df
-        if df is None:
+        if self.df is None:
             return "⚠️ No data loaded."
 
-        # ---- Extract quantity & item type from query ----
-        num_match = re.search(r'(\d+)', query)
-        num_items = int(num_match.group(1)) if num_match else 10
+        question_lower = question.lower()
 
-        item_match = re.search(
-            r'\d+\s+([\w][\w\s]*?)(?:\s+(?:to|for|among|across|in|between|whom)\b|$)',
-            query, re.IGNORECASE,
-        )
-        item_type = item_match.group(1).strip() if item_match else "items"
+        # Extract num_items from question if not provided by caller
+        if num_items is None:
+            num_match = re.search(r'\b(\d+)\b', question_lower)
+            num_items = int(num_match.group(1)) if num_match else 10
 
-        # ---- Compute HH_SIZE (family size) if missing ----
-        if 'HH_SIZE' not in df.columns:
-            hh_keys = ['DISTRICT', 'PSU', 'HUNIT', 'HHOLD']
-            if all(c in df.columns for c in hh_keys):
-                hh_sizes = (
-                    df.groupby(hh_keys)
-                    .size()
-                    .reset_index(name='HH_SIZE')
-                )
-                df = df.merge(hh_sizes, on=hh_keys, how='left')
-                self.df = df  # persist for subsequent calls
-
-        # ---- Ask LLM for a Pandas query string (ONLY) ----
-        col_desc_text = "\n".join(
-            f"  {k}: {v}" for k, v in COLUMN_DESCRIPTIONS.items()
-        )
-        prompt = (
-            "You are a data-filtering expert for Sri Lanka's Labour Force Survey "
-            "(LFS-2023, ~18 937 rows).  Your ONLY job is to translate a resource-"
-            "allocation request into a valid Pandas df.query() boolean expression.\n\n"
-            f"AVAILABLE COLUMNS:\n{col_desc_text}\n\n"
-            f"USER REQUEST: \"{query}\"\n"
-            f"RESOURCE / PRODUCT: \"{item_type}\"\n\n"
-            "Think about WHO would benefit most from this resource, then write a "
-            "targeted but NOT overly restrictive filter.  Prefer 2-3 conditions "
-            "maximum so we get enough matches to distribute across districts.\n\n"
-            "EXAMPLES OF VALID OUTPUT (return text exactly like these):\n"
-            "  SEX == 2 & AGE >= 18 & AGE <= 60\n"
-            "  AGE >= 18 & AGE <= 65\n"
-            "  P17 >= 2 & AGE >= 18\n"
-            "  AGE >= 16 & AGE <= 45\n\n"
-            "RULES:\n"
-            "1. Return ONLY the Pandas query string — no explanation, no code "
-            "blocks, no surrounding quotes, no backticks.\n"
-            "2. Use only column names listed above.\n"
-            "3. Use Python operators: ==  !=  >  <  >=  <=\n"
-            "4. Use & for AND, | for OR.  Parenthesise OR groups.\n"
-            "5. Keep it broad enough to return hundreds of matches.\n"
-            "6. Do NOT use columns that have mostly empty values (Q60A, Q61 "
-            "have many NaN).  Prefer AGE, SEX, SECTOR, EDU, Q2, Q16.\n\n"
-            "Your query string:"
-        )
-
-        pandas_query_str = None
-        if self.llm is not None:
-            try:
-                raw = str(self.llm.complete(prompt)).strip()
-                # Sanitise: strip markdown fences, stray quotes / backticks
-                cleaned = re.sub(r'^```[\w]*\n?', '', raw)
-                cleaned = re.sub(r'\n?```$', '', cleaned)
-                cleaned = cleaned.strip('`"\' \n')
-                pandas_query_str = cleaned
-                print(f"🔍 LLM Filter: {pandas_query_str}")
-            except Exception as e:
-                print(f"⚠️ LLM query generation failed: {e}")
-
-        if not pandas_query_str:
-            return "⚠️ Could not generate filter criteria from LLM."
-
-        # ---- Execute df.query() with progressive relaxation ----
-        conditions = [c.strip() for c in pandas_query_str.split('&')]
-        filtered_df = None
-        used_query = pandas_query_str
-
-        # Try full query first, then drop conditions from the end one by one
-        for n_conds in range(len(conditions), 0, -1):
-            attempt_query = ' & '.join(conditions[:n_conds])
-            try:
-                result = df.query(attempt_query)
-                if len(result) > 0:
-                    filtered_df = result.copy()
-                    used_query = attempt_query
-                    if n_conds < len(conditions):
-                        print(f"🔄 Relaxed filter to: {used_query}")
-                    break
-            except Exception as err:
-                print(f"⚠️ Filter error ({attempt_query}): {err}")
-                continue
-
-        if filtered_df is None or len(filtered_df) == 0:
-            # Ultimate fallback: working-age adults
-            fallback_q = 'AGE >= 18 & AGE <= 65'
-            try:
-                filtered_df = df.query(fallback_q).copy()
-                used_query = fallback_q
-                print(f"🔄 Using fallback filter: {fallback_q}")
-            except Exception:
-                return "⚠️ Could not filter data from the dataset."
-
-        total_matches = len(filtered_df)
-        print(f"✅ Total Matches Found (filter): {total_matches:,}")
-
-        # ---- Cluster-aware refinement ----
-        cluster_name_used = None
-        if 'cluster_label' in filtered_df.columns and self.llm is not None:
-            available_labels = filtered_df['cluster_label'].dropna().unique().tolist()
-            if available_labels:
-                # Ask LLM which cluster best fits the resource
-                keyword_map = {
-                    'skill gap':          'High Skill Gap - Needs Job Matching',
-                    'digitally excluded': 'Digitally Excluded - Needs Tech Training',
-                    'vulnerable':         'Economically Vulnerable - Needs Social Safety Net',
-                    'stable':             'Stable Workforce - Needs Leadership/Advanced Skills',
-                }
-                try:
-                    cluster_prompt = (
-                        "You are allocating resources to Sri Lankan workers.\n"
-                        f"Resource: {item_type}\n"
-                        f"User request: {query}\n\n"
-                        "Available workforce clusters:\n" +
-                        "\n".join(f"  - {lbl}" for lbl in available_labels) +
-                        "\n\nWhich single cluster should be PRIORITISED? "
-                        "Reply with ONLY the cluster name, nothing else."
-                    )
-                    llm_cluster = str(self.llm.complete(cluster_prompt)).strip()
-                    # Match via keyword
-                    target_cluster = 'Economically Vulnerable - Needs Social Safety Net'
-                    for kw, cname in keyword_map.items():
-                        if kw in llm_cluster.lower():
-                            target_cluster = cname
-                            break
-
-                    cluster_subset = filtered_df[
-                        filtered_df['cluster_label'] == target_cluster
-                    ]
-                    if len(cluster_subset) > 0:
-                        filtered_df = cluster_subset.copy()
-                        cluster_name_used = target_cluster
-                        print(f"🎯 Cluster: {cluster_name_used} "
-                              f"({len(filtered_df):,} candidates)")
-                    else:
-                        print(f"⚠️ Cluster '{target_cluster}' empty after "
-                              "filter — using all filtered matches")
-                except Exception as e:
-                    print(f"⚠️ Cluster selection failed: {e}")
-
-        # Sort by distance_to_center if available (closest = most representative)
-        if 'distance_to_center' in filtered_df.columns:
-            filtered_df = filtered_df.sort_values(
-                'distance_to_center', ascending=True
+        # Extract item_type from question if not provided by caller
+        if item_type is None:
+            alloc_match = re.search(
+                r'(?:give|distribut|allocat|provide|deliver|hand\s*out|send|assign|target)'
+                r'\s+\d+\s+(\w+)',
+                question_lower,
             )
+            item_type = alloc_match.group(1) if alloc_match else "items"
 
-        total_matches = len(filtered_df)
-        print(f"✅ Final candidate pool: {total_matches:,}")
-
-        # ---- District-wise proportional allocation ----
-        district_counts = (
-            filtered_df['DISTRICT']
-            .value_counts()
-            .sort_values(ascending=False)
-        )
-        total_in_filter = district_counts.sum()
-
-        district_items = []       # (name, units)
-        allocated_so_far = 0
-        entries = list(district_counts.items())
-
-        for i, (code, count) in enumerate(entries):
-            if i == len(entries) - 1:
-                units = max(0, num_items - allocated_so_far)
-            else:
-                units = round(num_items * (count / total_in_filter))
-            allocated_so_far += units
-            name = DISTRICT_MAP.get(int(code), f"District {int(code)}")
-            if units > 0:
-                district_items.append((name, units))
-
-        # ---- Profile table — proportionally sampled across districts ----
-        # Pick from each district in proportion to its allocation so profiles
-        # reflect real geographic spread (not just the first rows = Colombo).
-        n_profiles = min(num_items, total_matches)
-        sampled_parts = []
-        for code, count in district_counts.items():
-            district_share = round(n_profiles * (count / total_in_filter))
-            if district_share == 0:
-                continue
-            district_rows = filtered_df[filtered_df['DISTRICT'] == code]
-            sampled_parts.append(
-                district_rows.head(district_share)
-            )
-        if sampled_parts:
-            sampled_df = pd.concat(sampled_parts, ignore_index=False)
-        else:
-            sampled_df = filtered_df.head(n_profiles)
-        # Trim / pad to exact count
-        if len(sampled_df) > n_profiles:
-            sampled_df = sampled_df.head(n_profiles)
-        elif len(sampled_df) < n_profiles:
-            remaining = filtered_df[~filtered_df.index.isin(sampled_df.index)]
-            sampled_df = pd.concat([
-                sampled_df,
-                remaining.head(n_profiles - len(sampled_df))
-            ])
-
-        # ---- Employment mapping (Q2: 1=Employed, 2=Unemployed, 3=Inactive) ----
-        _Q2_MAP = {1: "Employed", 2: "Unemployed", 3: "Inactive"}
-
-        profile_rows = []
-        for idx, row in sampled_df.iterrows():
-            district_name = (
-                DISTRICT_MAP.get(int(row['DISTRICT']),
-                                 str(int(row['DISTRICT'])))
-                if pd.notna(row.get('DISTRICT')) else 'N/A'
-            )
-            sector_label = (
-                SECTOR_MAP.get(int(row['SECTOR']), str(int(row['SECTOR'])))
-                if pd.notna(row.get('SECTOR')) else 'N/A'
-            )
-            emp_label = (
-                _Q2_MAP.get(int(row['Q2']), str(int(row['Q2'])))
-                if pd.notna(row.get('Q2')) else 'N/A'
-            )
-            hh_size = (
-                int(row['HH_SIZE'])
-                if 'HH_SIZE' in row.index and pd.notna(row.get('HH_SIZE'))
-                else 'N/A'
-            )
-            # Income: Q45_A_1 may be string with spaces — coerce safely
-            try:
-                inc_val = pd.to_numeric(row.get('Q45_A_1'), errors='coerce')
-                income_str = f"Rs. {inc_val:,.0f}" if pd.notna(inc_val) else 'N/A'
-            except Exception:
-                income_str = 'N/A'
-
-            cluster_val = (
-                str(row['cluster_label'])
-                if 'cluster_label' in row.index and pd.notna(row.get('cluster_label'))
-                else 'N/A'
-            )
-
-            profile_rows.append({
-                'Line #': idx,
-                'District': district_name,
-                'Sector': sector_label,
-                'Employment': emp_label,
-                'Family': hh_size,
-                'Income Rs.': income_str,
-                'Cluster': cluster_val,
-            })
-
-        # ---- Assemble formatted output ----
-        out = []
-        out.append(f"\n✅ DATA-DRIVEN ANALYSIS FOR: {query}")
-        if cluster_name_used:
-            out.append(f"🎯 Target Cluster: {cluster_name_used}")
-        out.append(f"\n📊 Total Matches Found: {total_matches:,}")
-        out.append(f"\n📍 District-wise Allocation:")
-        out.append(f"{'─' * 45}")
-        for name, units in district_items:
-            out.append(f"  {name:<20}: {units} units")
-        out.append(f"\n👤 Targeted User Profiles ({n_profiles} shown):")
-        hdr = (f"{'Line #':<8}| {'District':<15}| {'Sector':<8}| "
-               f"{'Employment':<12}| {'Family':<7}| {'Income Rs.':<14}| {'Cluster'}")
-        out.append(f"{'─' * len(hdr)}")
-        out.append(hdr)
-        out.append(f"{'─' * len(hdr)}")
-        for pr in profile_rows:
-            out.append(
-                f"{str(pr['Line #']):<8}| {pr['District']:<15}| "
-                f"{pr['Sector']:<8}| {pr['Employment']:<12}| "
-                f"{str(pr['Family']):<7}| {pr['Income Rs.']:<14}| "
-                f"{pr['Cluster']}"
-            )
-
-        return "\n".join(out)
+        print(f"🎯 Direct allocation route: {num_items}x {item_type}")
+        return self._handle_resource_allocation(question, num_items, item_type)
 
     # ==================================================================
     #  PRE-COMPUTED STATISTICS  (for general queries)
