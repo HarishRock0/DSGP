@@ -1,24 +1,13 @@
 import os
 import pickle
-import pandas as pd
-import numpy as np
 import warnings
 import torch
 import sys
-import re
-import json
 
 warnings.filterwarnings('ignore')
 
 # Make the Engines/ sub-package importable regardless of run directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Shared lookup tables — single source of truth in Engines/constants.py
-from Engines.constants import (
-    COLUMN_DESCRIPTIONS, COLUMN_VALUE_SCALE, EMPLOYMENT_STATUS,
-    SECTOR_MAP, DISTRICT_MAP, ETHNICITY_MAP, RELIGION_MAP,
-    MARITAL_MAP, PROVINCE_DISTRICTS,
-)
 
 # GPU Detection with detailed diagnostics
 print("\n" + "="*60)
@@ -51,13 +40,12 @@ class SkillDev:
     pass
 
 
-# Engine imports (sys.path already set above)
-from Engines.NLPC import NLPClusterQueryEngine    # BART intent router
-from Engines.LLMQ import LLMQueryEngine           # Groq LLM responder
+# Agentic AI entry point
+from Engines.agent import LFSAgent
 
 
 if __name__ == "__main__":
-    # Locate the pretrained model pickle (cluster data required)
+    # ── Locate pretrained model ──────────────────────────────────────────────
     candidate_paths = [
         os.path.join('..', 'model', 'skilldev_model.pkl'),
         os.path.join('model', 'skilldev_model.pkl'),
@@ -68,23 +56,27 @@ if __name__ == "__main__":
         print("❌ No pretrained model found. Please supply skilldev_model.pkl.")
         sys.exit(1)
 
-    print(f"✅ Using model: {valid_path}\n")
+    print(f"✅ Using model: {valid_path}")
 
-    # ── Initialise both engines ──────────────────────────────────────────────
-    # NLPC loads BART for intent detection
-    nlpc = NLPClusterQueryEngine(model_path=valid_path)
-    # LLMQ loads the same pickle for data + Groq for LLM responses
-    llm  = LLMQueryEngine(model_path=valid_path)
+    # ── Create the agentic AI ────────────────────────────────────────────────
+    # LFSAgent initialises LLMQueryEngine + NLPClusterQueryEngine, registers
+    # all @tool functions, and builds a ReActAgent that autonomously selects
+    # the right tool(s) for every user query.
+    agent = LFSAgent(model_path=valid_path, verbose=True)
 
-    print("\n" + "=" * 70)
-    print("💬  LFS-2023 Query Interface")
-    print("    Route: User → BART (NLPC) → intent → LLM handler (LLMQ)")
-    print("=" * 70)
-    print("Slash commands : /clusters [question]  /compare  /insights [topic]")
-    print("Type 'quit' to exit.\n")
+    print("Available tools  : allocate_resources | compare_clusters | query_cluster")
+    print("                   get_insights | analyze_demographics | find_outliers")
+    print("                   get_cluster_stats | get_data_schema")
+    print("Mode             :", agent.mode)
+    print("Type 'quit' to exit, 'reset' to clear conversation memory.\n")
 
+    # ── Agentic chat loop ────────────────────────────────────────────────────
     while True:
-        query = input("📝 Your query: ").strip()
+        try:
+            query = input("📝 Your query: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\n✅ Goodbye!")
+            break
 
         if not query:
             continue
@@ -93,40 +85,12 @@ if __name__ == "__main__":
             print("✅ Goodbye!")
             break
 
-        # ── Slash commands bypass BART (explicit user intent) ────────────────
-        if query.startswith('/'):
-            parts = query.split(' ', 1)
-            cmd   = parts[0].lower()
-            arg   = parts[1] if len(parts) > 1 else None
+        if query.lower() == 'reset':
+            agent.reset()
+            print("🔄 Conversation memory cleared.")
+            continue
 
-            if cmd == '/clusters':
-                print(llm.ask_about_clusters(arg or "Tell me about the clusters."))
-            elif cmd == '/compare':
-                print(llm.compare_clusters())
-            elif cmd == '/insights':
-                print(llm.get_insights(arg))
-            else:
-                print("⚠️  Unknown command.  Use /clusters, /compare, /insights, or quit.")
-
-        # ── Free-text queries: BART detects intent, route to LLMQ ───────────
-        else:
-            result = nlpc.understand_query(query)
-            route  = result['route']
-
-            if route == "resource_allocation":
-                print(llm.handle_allocation(query))
-
-            elif route == "compare_clusters":
-                print(llm.compare_clusters())
-
-            elif route == "cluster_query":
-                print(llm.ask_about_clusters(query))
-
-            elif route == "insights":
-                print(llm.get_insights())
-
-            else:   # general_analysis (demographic / statistical)
-                print(llm.analyze_data(query))
-
+        print()
+        print(agent.chat(query))
         print()
 
