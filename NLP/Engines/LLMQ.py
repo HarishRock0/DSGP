@@ -598,7 +598,10 @@ class LLMQueryEngine:
             rows.append(r)
 
         table_df = pd.DataFrame(rows)
-        table_str = table_df.to_string(index=False) if len(table_df) <= 200 else table_df.head(200).to_string(index=False)
+        if len(table_df) > 200:
+            table_df = table_df.head(200)
+        # Present as a proper markdown table
+        table_str = table_df.to_markdown(index=False)
 
         # ---- 4. Summary statistics ----
         incomes = beneficiaries['Q45_A_1'].dropna()
@@ -645,111 +648,64 @@ class LLMQueryEngine:
             f"Estate={int((df['SECTOR']==3).sum())}\n"
         )
 
-        # ---- 6. Build final prompt for LLM  (NO code generation) ----
-        final_prompt = f"""You are a resource-allocation analyst for Sri Lanka's Labour Force Survey (LFS-2023).
+        # ---- 6. Compact prompt for LLM — aggregates only, NO full table ----
+        # Python already has the table locally. Groq only writes a short intro.
+        # This means the LLM output token limit is NEVER hit, regardless of
+        # how many beneficiaries are selected (100, 500, 1000 all work perfectly).
+        intro_prompt = f"""You are a resource-allocation analyst for Sri Lanka's Labour Force Survey (LFS-2023).
 
 USER QUESTION: {question}
 
-I have ALREADY identified the top {n} beneficiaries using a multi-factor need scoring system.
-The scoring considers: income (40%), education level (15%), disability burden (15%),
-employment informality (10%), sector deprivation (10%), and item-specific factors (10%).
+Python has ALREADY selected the top {n} beneficiaries using a multi-factor need scoring system
+(income 40%, education 15%, disability 15%, informality 10%, sector deprivation 10%, item-specific 10%).
 
-All data below is PRE-COMPUTED by Python and is 100% accurate.
-DO NOT recalculate. DO NOT return Python code. Only format and present the results.
-
-COLUMN MEANINGS (for reference):
-"""
-        # Add relevant column descriptions
-        relevant_cols = ['Q45_A_1', 'SEX', 'AGE', 'EDU', 'SECTOR', 'DISTRICT',
-                         'Q16', 'Q47', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20']
-        for col in relevant_cols:
-            if col in COLUMN_DESCRIPTIONS:
-                final_prompt += f"- {col.upper()}: {COLUMN_DESCRIPTIONS[col]}\n"
-
-        final_prompt += """
-VALUE MAPPINGS (use these to translate codes in your responses):
-
-=== ADMINISTRATIVE & IDENTIFICATION ===
-SECTOR: 1=Urban, 2=Rural, 3=Estate
-
-DISTRICT:
-  11=Colombo, 12=Gampaha, 13=Kalutara, 21=Kandy, 22=Matale, 23=Nuwara Eliya,
-  31=Galle, 32=Matara, 33=Hambantota, 41=Jaffna, 42=Kilinochchi, 43=Mannar,
-  44=Vavuniya, 45=Mullaitivu, 51=Batticaloa, 52=Ampara, 53=Trincomalee,
-  61=Kurunegala, 62=Puttalam, 71=Anuradhapura, 72=Polonnaruwa,
-  81=Badulla, 82=Monaragala, 91=Ratnapura, 92=Kegalle
-
-=== PERSONAL CHARACTERISTICS ===
-SEX: 1=Male, 2=Female
-MARITAL: 1=Never married, 2=Married, 3=Widowed, 4=Divorced, 5=Separated
-ETH: 1=Sinhala, 2=SL Tamil, 3=Indian Tamil, 4=Moor, 5=Malay, 6=Burgher, 9=Other
-
-=== EMPLOYMENT ===
-Q16: 1=Employee (public/private), 2=Employer, 3=Own account worker, 4=Contributing family worker
-Q47: 1=Formal, 2=Informal
-
-=== DISABILITY (P15-P20) ===
-1=No difficulty, 2=Some difficulty, 3=A lot of difficulty, 4=Cannot do at all
-
-IMPORTANT: All codes have ALREADY been translated in the table below. Present them as-is.
-"""
-
-        final_prompt += f"""
-=== BENEFICIARY ALLOCATION LIST (ALL {n} beneficiaries) ===
-
-{table_str}
-
+PRE-COMPUTED AGGREGATE STATISTICS FOR THE SELECTED {n} PEOPLE (100% accurate, use these only):
 {summary}
 {dataset_context}
+TRUST LEVEL: {trust_level} — {trust_guidance}
 
-FOR RESOURCE ALLOCATION OF {num_items} {item_type.upper()}:
+Write ONLY a concise allocation report (5-8 sentences):
+1. Who was selected and why (cite exact numbers from statistics above).
+2. Key demographic patterns (sector split, gender, disability burden).
+3. Two targeted policy recommendations for distributing {num_items} {item_type}.
 
-CRITICAL: You MUST show ALL {n} beneficiaries. DO NOT abbreviate with "..." or skip rows.
+DO NOT list individual beneficiaries or row indices.
+DO NOT fabricate numbers. Use ONLY the statistics above. Be concise."""
 
-Your task:
-1. Present ALL {n} beneficiaries in a clear numbered table
-2. For each beneficiary, show: Row number, Dataset Index, Income, Need Score,
-   Age, Sex, Education, Sector, District, Employment status, and any disabilities
-3. After the complete list, provide:
-   - Total beneficiaries: {n}
-   - Average income of selected group vs overall population
-   - Need score statistics
-   - Distribution by sector, district (top 5), gender
-   - Brief allocation rationale (why these people were selected)
-   - 2-3 policy recommendations
-
-=== MATHEMATICAL CONFIDENCE / OUTLIER GUARDRAIL ===
-Average Distance to Cluster Centroid: {avg_dist if avg_dist is not None else 'N/A'}
-Trust Level: {trust_level}
-
-You MUST incorporate this confidence level into your response:
-{trust_guidance}
-
-REMEMBER: Show EVERY SINGLE ROW. No abbreviations. All numbers are pre-computed and exact.
-DO NOT return Python code. Return ONLY the formatted analysis.
-
-Provide your analysis:"""
-
-        # ---- 7. Call LLM directly (bypass PandasQueryEngine) ----
+        # ---- 7. Call LLM for SHORT intro paragraph only ----
+        intro_text = ""
         if self.llm is not None:
             try:
-                print(f"🤖 Sending allocation prompt to LLM ({len(final_prompt)} chars) …")
-                response = self.llm.complete(final_prompt)
-                answer = str(response)
-                self.last_question = question
-                self.last_answer = answer
-                return answer
+                print(f"🤖 Requesting intro paragraph from LLM ({len(intro_prompt)} chars) …")
+                response = self.llm.complete(intro_prompt)
+                intro_text = str(response).strip()
             except Exception as e:
-                print(f"⚠️ LLM call failed: {e}")
-                # Fall through to pre-computed fallback
+                print(f"⚠️ LLM intro call failed: {e}")
+                intro_text = (
+                    f"Allocation of {num_items} {item_type}: "
+                    f"Top {n} beneficiaries selected by need score (Python-computed, exact)."
+                )
+        else:
+            intro_text = (
+                f"Top {n} beneficiaries for {num_items} {item_type} — "
+                f"selected by Python need-score engine (LLM unavailable)."
+            )
 
-        # ---- Fallback: return pre-computed data directly ----
-        fallback = f"📊 Resource Allocation: {num_items} {item_type}\n\n"
-        fallback += f"BENEFICIARY LIST ({n} people, ranked by need score):\n\n"
-        fallback += table_str + "\n"
-        fallback += summary
-        fallback += dataset_context
-        return fallback
+        # ---- 8. Python stitches full answer locally (NO LLM output token limit) ----
+        final_answer = (
+            f"=== RESOURCE ALLOCATION REPORT ===\n"
+            f"Query: {question}\n\n"
+            f"{intro_text}\n\n"
+            f"=== BENEFICIARY LIST (ALL {n} — ranked by need score) ===\n\n"
+            f"{table_str}\n\n"
+            f"=== SUMMARY STATISTICS ===\n"
+            f"{summary.strip()}\n\n"
+            f"Data Confidence: {trust_level} — {trust_guidance}"
+        )
+
+        self.last_question = question
+        self.last_answer = final_answer
+        return final_answer
 
     # ==================================================================
     #  DIRECT ALLOCATION ENTRY POINT  (called by NLP.py after BART routing)
@@ -947,6 +903,8 @@ RULES:
 - Q45_A_1 already numeric; use .dropna() when filtering income.
 - Translate codes to labels in print(): e.g. print("District: 11 (Colombo)").
 - Show counts AND percentages. Use INCLUSIVE filters.
+- CRITICAL: When using df.sample(n=X), you MUST use df.sample(n=min(len(df), X)) to prevent ValueErrors if the filtered dataframe is smaller than X.
+- The final narrative response must be presented as a clear Markdown Table.
 """
         return s
 
@@ -997,7 +955,14 @@ INSTRUCTIONS:
 1. Use the pre-computed statistics above — they are EXACT.
 2. You may generate Python code for additional breakdowns not in the stats.
 3. Translate ALL codes to meanings. Be specific, cite actual numbers.
-4. DO NOT fabricate numbers."""
+4. DO NOT fabricate numbers.
+5. The final output MUST be formatted as a cleanly aligned Markdown table.
+6. When writing code, output ONLY raw python. DO NOT wrap the code in ```python ... ``` blocks.
+
+EXAMPLE EXPECTED OUTPUT FORMAT:
+| Index | Income | need score |
+|-------|--------|------------|
+| 9654  | 0      | 86.7       |"""
 
         # Try PandasQueryEngine first
         if self.query_engine is not None:
