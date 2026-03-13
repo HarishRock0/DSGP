@@ -5,8 +5,58 @@ import pandas as pd
 import numpy as np
 import warnings
 from difflib import get_close_matches
+from dotenv import load_dotenv
+import sys
 
 warnings.filterwarnings('ignore')
+
+# SkillDev class stub for pickle unpickling
+# Must be defined here so pickle can reconstruct the model object
+class SkillDev:
+    """Minimal stub to support unpickling SkillDev instances."""
+    pass
+
+
+# Custom pickle unpickler to handle pandas compatibility issues
+class CompatibleUnpickler(pickle.Unpickler):
+    """Custom unpickler that handles pandas StringDtype compatibility."""
+    
+    def find_class(self, module, name):
+        # Fix StringDtype incompatibility
+        if module == 'pandas.core.arrays.string_' and name == 'StringDtype':
+            try:
+                from pandas.core.dtypes.dtypes import StringDtype as NewStringDtype
+                return NewStringDtype
+            except ImportError:
+                pass
+        
+        # Handle SkillDev class
+        if name == 'SkillDev':
+            return SkillDev
+        
+        return super().find_class(module, name)
+
+
+def load_model_safely(model_path):
+    """Load pickled model with compatibility fixes for pandas versions."""
+    with open(model_path, 'rb') as f:
+        # Register SkillDev in __main__ for pickle
+        sys.modules['__main__'].SkillDev = SkillDev
+        
+        try:
+            # Try with custom compatible unpickler
+            unpickler = CompatibleUnpickler(f)
+            return unpickler.load()
+        except Exception as e:
+            print(f"⚠️  Custom unpickler failed: {e}")
+            # Fall back to standard unpickler
+            f.seek(0)
+            return pickle.load(f)
+
+# Load environment variables from .env file
+# Explicitly specify path to handle different working directories
+_env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+load_dotenv(_env_path)
 
 try:
     from llama_index.experimental.query_engine import PandasQueryEngine
@@ -28,6 +78,9 @@ from .constants import (
     SECTOR_MAP,
     DISTRICT_MAP,
     EMPLOYMENT_STATUS,
+    ETHNICITY_MAP,
+    RELIGION_MAP,
+    MARITAL_MAP,
 )
 
 
@@ -62,8 +115,7 @@ class LLMQueryEngine:
             self.has_clusters = 'cluster_id' in df.columns
         elif model_path and os.path.exists(model_path):
             print(f"📂 Loading model from {model_path}")
-            with open(model_path, 'rb') as f:
-                model = pickle.load(f)
+            model = load_model_safely(model_path)
             self.df = model.df.copy() if hasattr(model, 'df') and model.df is not None else None
             self.has_clusters = self.df is not None and 'cluster_id' in self.df.columns
 

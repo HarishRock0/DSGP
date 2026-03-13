@@ -46,9 +46,10 @@ from Engines.agent import LFSAgent
 
 if __name__ == "__main__":
     # ── Locate pretrained model ──────────────────────────────────────────────
+    nlp_dir = os.path.dirname(os.path.abspath(__file__))
     candidate_paths = [
-        os.path.join('..', 'model', 'skilldev_model.pkl'),
-        os.path.join('model', 'skilldev_model.pkl'),
+        os.path.join(nlp_dir, '..', 'model', 'skilldev_model.pkl'),
+        os.path.join(nlp_dir, 'model', 'skilldev_model.pkl'),
     ]
     valid_path = next((p for p in candidate_paths if os.path.exists(p)), None)
 
