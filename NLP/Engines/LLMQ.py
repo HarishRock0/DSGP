@@ -19,39 +19,55 @@ class SkillDev:
 
 # Custom pickle unpickler to handle pandas compatibility issues
 class CompatibleUnpickler(pickle.Unpickler):
-    """Custom unpickler that handles pandas StringDtype compatibility."""
-    
+    """Custom unpickler that handles pandas StringDtype and SkillDev compatibility."""
+
+    @staticmethod
+    def _make_string_dtype_proxy():
+        """Return a StringDtype subclass that silently accepts any __init__ args."""
+        try:
+            from pandas import StringDtype as _SD
+            class _StringDtypeCompat(_SD):
+                def __init__(self, *args, **kwargs):
+                    # Accept legacy positional args from old pickles; discard extras
+                    try:
+                        super().__init__()
+                    except TypeError:
+                        pass
+            return _StringDtypeCompat
+        except Exception:
+            return None
+
     def find_class(self, module, name):
-        # Fix StringDtype incompatibility
-        if module == 'pandas.core.arrays.string_' and name == 'StringDtype':
-            try:
-                from pandas.core.dtypes.dtypes import StringDtype as NewStringDtype
-                return NewStringDtype
-            except ImportError:
-                pass
-        
-        # Handle SkillDev class
+        # Fix StringDtype incompatibility (handles both old and new pandas locations)
+        if name == 'StringDtype' and 'pandas' in module:
+            proxy = self._make_string_dtype_proxy()
+            if proxy is not None:
+                return proxy
+        # Handle SkillDev class (from any module)
         if name == 'SkillDev':
             return SkillDev
-        
         return super().find_class(module, name)
 
 
 def load_model_safely(model_path):
     """Load pickled model with compatibility fixes for pandas versions."""
+    sys.modules['__main__'].SkillDev = SkillDev  # register for pickle
+
     with open(model_path, 'rb') as f:
-        # Register SkillDev in __main__ for pickle
-        sys.modules['__main__'].SkillDev = SkillDev
-        
         try:
-            # Try with custom compatible unpickler
-            unpickler = CompatibleUnpickler(f)
-            return unpickler.load()
-        except Exception as e:
-            print(f"⚠️  Custom unpickler failed: {e}")
-            # Fall back to standard unpickler
+            return CompatibleUnpickler(f).load()
+        except Exception as e1:
+            print(f"⚠️  Custom unpickler failed: {e1}")
             f.seek(0)
-            return pickle.load(f)
+            try:
+                return pickle.load(f)
+            except Exception as e2:
+                print(f"⚠️  Standard pickle also failed: {e2}")
+                raise RuntimeError(
+                    f"Cannot load model from {model_path}.\n"
+                    f"Errors: {e1} | {e2}\n"
+                    f"Run: python train_model.py  to regenerate the model."
+                ) from e2
 
 # Load environment variables from .env file
 # Explicitly specify path to handle different working directories
@@ -156,6 +172,32 @@ class LLMQueryEngine:
             self.has_clusters = False
             print("⚠️ No data loaded")
 
+        # ---- Pre-compute group-median income lookup (for allocation scoring) ----
+        # Built from the ~14% of records that DO have income data.
+        # Used in _compute_need_score() to give better estimates for employed people
+        # with missing income, before falling back to employment-status proxy.
+        self._income_median_lookup: dict = {}
+        if self.df is not None and 'Q45_A_1' in self.df.columns:
+            try:
+                df_tmp = self.df.copy()
+                df_tmp['_inc'] = pd.to_numeric(df_tmp['Q45_A_1'], errors='coerce')
+                has_inc = df_tmp['_inc'].notna()
+                if has_inc.sum() > 50:
+                    grp_cols = [c for c in ['SECTOR', 'Q16', 'EDU'] if c in df_tmp.columns]
+                    lookup_series = (
+                        df_tmp[has_inc]
+                        .groupby(grp_cols, dropna=True)['_inc']
+                        .median()
+                    )
+                    for keys, val in lookup_series.items():
+                        norm_key = tuple(
+                            int(k) for k in (keys if isinstance(keys, tuple) else (keys,))
+                        )
+                        self._income_median_lookup[norm_key] = float(val)
+                    print(f"✅ Income group-median lookup: {len(self._income_median_lookup)} groups")
+            except Exception as _e:
+                print(f"⚠️ Income lookup build failed (non-critical): {_e}")
+
         # ---- LLM setup ----
         self.llm = None
         self.query_engine = None
@@ -255,12 +297,48 @@ class LLMQueryEngine:
         }
 
         # 1. Income component (0-100, lower income → higher score)
-        income = row.get('Q45_A_1')
-        if pd.notna(income):
-            # Scale: 0 LKR → 100, 100k+ → 0
-            score += weights['income'] * max(0.0, 100.0 - (float(income) / 1000.0))
+        income_raw = row.get('Q45_A_1')
+        try:
+            income = float(income_raw) if pd.notna(income_raw) else None
+        except (TypeError, ValueError):
+            income = None
+
+        if income is not None:
+            # Known income: scale 0 LKR → 100 pts, 100k+ LKR → 0 pts
+            score += weights['income'] * max(0.0, 100.0 - (income / 1000.0))
         else:
-            score += weights['income'] * 50  # Unknown income → moderate need
+            # No income on record — try group-median lookup first
+            group_score = None
+            try:
+                sect = row.get('SECTOR')
+                q16_v = row.get('Q16')
+                edu_v = row.get('EDU')
+                if pd.notna(sect) and pd.notna(q16_v) and pd.notna(edu_v):
+                    key = (int(float(sect)), int(float(q16_v)), int(float(edu_v)))
+                    grp_median = getattr(self, '_income_median_lookup', {}).get(key)
+                    if grp_median is not None and pd.notna(grp_median):
+                        group_score = max(0.0, 100.0 - (grp_median / 1000.0))
+            except Exception:
+                pass
+
+            if group_score is not None:
+                # Use statistical group estimate
+                score += weights['income'] * group_score
+            else:
+                # Last resort: infer vulnerability from employment status
+                q2  = row.get('Q2')
+                q16 = row.get('Q16')
+                q47 = row.get('Q47')
+                if pd.notna(q2) and float(q2) == 2:
+                    score += weights['income'] * 90   # Not working → highest need
+                elif pd.notna(q16) and float(q16) == 4:
+                    score += weights['income'] * 85   # Unpaid family worker
+                elif pd.notna(q16) and float(q16) == 3:
+                    score += weights['income'] * 75   # Own-account / self-employed
+                elif pd.notna(q47) and float(q47) == 2:
+                    score += weights['income'] * 70   # Informal employee
+                else:
+                    score += weights['income'] * 40   # Formal employed, income unreported
 
         # 2. Education (0-100, lower edu → higher score)
         edu = row.get('EDU')
@@ -421,104 +499,21 @@ class LLMQueryEngine:
         df = self.df
         question_lower = question.lower()
 
-        # ---- 1-A. Determine target cluster via LLM + safe keyword matching ----
-        # Maps simple lowercase keywords → exact cluster_label strings in the CSV.
-        keyword_map = {
-            'skill gap':          'High Skill Gap - Needs Job Matching',
-            'digitally excluded': 'Digitally Excluded - Needs Tech Training',
-            'vulnerable':         'Economically Vulnerable - Needs Social Safety Net',
-            'stable':             'Stable Workforce - Needs Leadership/Advanced Skills',
-        }
+        # ---- Pool: score ALL records — no cluster pre-filtering ----
+        # Clusters are used for REPORTING and population planning only.
+        # Filtering to one cluster before scoring was causing the most vulnerable
+        # people outside that cluster to be silently excluded.
+        # The need-score formula (applied below) correctly ranks everyone globally.
 
-        # Safest default if nothing matches (most likely to benefit from resources)
-        target_cluster_exact = 'Economically Vulnerable - Needs Social Safety Net'
-
-        if self.llm is not None and 'cluster_label' in df.columns:
-            try:
-                available_labels = df['cluster_label'].dropna().unique().tolist()
-                cluster_profiles_text = self._build_cluster_profiles()
-                cluster_prompt = (
-                    f"You are helping allocate resources to Sri Lankan workers.\n"
-                    f"User question: {question}\n\n"
-                    f"Cluster demographic profiles:\n{cluster_profiles_text}\n\n"
-                    f"Available cluster names:\n" +
-                    "\n".join(f"  - {lbl}" for lbl in available_labels) +
-                    "\n\nBased on the demographic profiles above, which single cluster is the "
-                    "best match for this resource allocation request? Reply with ONLY the "
-                    "exact cluster name from the available list, no extra text."
-                )
-                llm_response = str(self.llm.complete(cluster_prompt))
-                llm_text = llm_response.strip()
-
-                # 1. Exact match
-                if llm_text in available_labels:
-                    target_cluster_exact = llm_text
-                    print(f"🎯 Target cluster (exact match): {target_cluster_exact}")
-
-                # 2. Fuzzy match — handles truncated or slightly rephrased LLM output
-                elif get_close_matches(llm_text, available_labels, n=1, cutoff=0.6):
-                    target_cluster_exact = get_close_matches(llm_text, available_labels, n=1, cutoff=0.6)[0]
-                    print(f"🎯 Target cluster (fuzzy match '{llm_text}' → '{target_cluster_exact}')")
-
-                # 3. Keyword fallback
-                else:
-                    llm_lower = llm_text.lower()
-                    matched = False
-                    for keyword, cluster_name in keyword_map.items():
-                        if keyword in llm_lower and cluster_name in available_labels:
-                            target_cluster_exact = cluster_name
-                            matched = True
-                            break
-                    if matched:
-                        print(f"🎯 Target cluster (keyword fallback): {target_cluster_exact}")
-                    else:
-                        print(f"⚠️  Could not match LLM response '{llm_text}' to any cluster — using default")
-                        # Default to cluster with most people as a safe fallback
-                        target_cluster_exact = (
-                            self.df['cluster_label'].value_counts().index[0]
-                            if 'cluster_label' in self.df.columns and len(self.df) > 0
-                            else available_labels[0]
-                        )
-                        print(f"🎯 Target cluster (auto-default): {target_cluster_exact}")
-            except Exception as e:
-                print(f"⚠️ Cluster detection LLM call failed ({e}), "
-                      f"falling back to keyword scan of question")
-                for keyword, cluster_name in keyword_map.items():
-                    if keyword in question_lower:
-                        target_cluster_exact = cluster_name
-                        break
-                print(f"🎯 Target cluster (keyword fallback): {target_cluster_exact}")
-        else:
-            # No LLM available or no cluster_label column — match against question text
-            for keyword, cluster_name in keyword_map.items():
-                if keyword in question_lower:
-                    target_cluster_exact = cluster_name
-                    break
-            print(f"🎯 Target cluster (question keyword): {target_cluster_exact}")
-
-        # ---- 1-B. Filter to target cluster, sort closest-to-centroid first ----
-        if 'cluster_label' in df.columns:
-            filtered_df = df[df['cluster_label'] == target_cluster_exact].copy()
-            if len(filtered_df) == 0:
-                print(f"⚠️ Cluster '{target_cluster_exact}' not found in data — "
-                      "using full dataset as fallback")
-                filtered_df = df.copy()
-
-            # Sort by proximity to centroid so the most representative individuals
-            # are selected first (ascending = closest first)
-            if 'distance_to_center' in filtered_df.columns:
-                pool = filtered_df.sort_values(by='distance_to_center', ascending=True)
-            else:
-                pool = filtered_df
-        else:
-            # CSV predates cluster columns — fall back to full dataset
-            pool = df.copy()
+        pool = df.copy()
 
         if len(pool) == 0:
             return "⚠️ No data available for need-based resource allocation."
 
-        # ---- 2. Score & rank ----
-        print(f"📊 Scoring {len(pool)} candidates …")
+        # pool is already set to df.copy() above — score all 18,937 records globally.
+        print(f"📊 Scoring all {len(pool):,} records for need-based allocation …")
+
+        # ---- 2. Score & rank all records ----
         pool['_need_score'] = pool.apply(
             lambda r: self._compute_need_score(r, item_type, question_lower), axis=1
         )
@@ -567,8 +562,15 @@ class LLMQueryEngine:
         rows = []
         for i, (_, row) in enumerate(beneficiaries.iterrows(), 1):
             r = {'No': i, 'Index': int(row['index'])}
-            r['Income (LKR)'] = f"Rs. {row['Q45_A_1']:,.0f}" if pd.notna(row['Q45_A_1']) else 'N/A'
-            r['Need Score'] = row['_need_score']
+            try:
+                r['Income (LKR)'] = f"Rs. {float(row['Q45_A_1']):,.0f}" if pd.notna(row['Q45_A_1']) else 'N/A'
+            except (TypeError, ValueError):
+                r['Income (LKR)'] = 'N/A'
+            r['Need Score'] = round(row['_need_score'], 1)
+            # Show cluster label as informational group tag (not used for filtering)
+            _cl = row.get('cluster_label')
+            if _cl is not None and pd.notna(_cl):
+                r['Group'] = str(_cl)
             if pd.notna(row.get('AGE')):
                 r['Age'] = int(row['AGE'])
             if pd.notna(row.get('SEX')):

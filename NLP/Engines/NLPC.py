@@ -16,39 +16,52 @@ class SkillDev:
 
 # Custom pickle unpickler to handle pandas compatibility issues
 class CompatibleUnpickler(pickle.Unpickler):
-    """Custom unpickler that handles pandas StringDtype compatibility."""
-    
+    """Custom unpickler that handles pandas StringDtype and SkillDev compatibility."""
+
+    @staticmethod
+    def _make_string_dtype_proxy():
+        """Return a StringDtype subclass that silently accepts any __init__ args."""
+        try:
+            from pandas import StringDtype as _SD
+            class _StringDtypeCompat(_SD):
+                def __init__(self, *args, **kwargs):
+                    try:
+                        super().__init__()
+                    except TypeError:
+                        pass
+            return _StringDtypeCompat
+        except Exception:
+            return None
+
     def find_class(self, module, name):
-        # Fix StringDtype incompatibility
-        if module == 'pandas.core.arrays.string_' and name == 'StringDtype':
-            try:
-                from pandas.core.dtypes.dtypes import StringDtype as NewStringDtype
-                return NewStringDtype
-            except ImportError:
-                pass
-        
-        # Handle SkillDev class
+        if name == 'StringDtype' and 'pandas' in module:
+            proxy = self._make_string_dtype_proxy()
+            if proxy is not None:
+                return proxy
         if name == 'SkillDev':
             return SkillDev
-        
         return super().find_class(module, name)
 
 
 def load_model_safely(model_path):
     """Load pickled model with compatibility fixes for pandas versions."""
+    sys.modules['__main__'].SkillDev = SkillDev
+
     with open(model_path, 'rb') as f:
-        # Register SkillDev in __main__ for pickle
-        sys.modules['__main__'].SkillDev = SkillDev
-        
         try:
-            # Try with custom compatible unpickler
-            unpickler = CompatibleUnpickler(f)
-            return unpickler.load()
-        except Exception as e:
-            print(f"  Custom unpickler failed: {e}")
-            # Fall back to standard unpickler
+            return CompatibleUnpickler(f).load()
+        except Exception as e1:
+            print(f"  Custom unpickler failed: {e1}")
             f.seek(0)
-            return pickle.load(f)
+            try:
+                return pickle.load(f)
+            except Exception as e2:
+                raise RuntimeError(
+                    f"Cannot load model from {model_path}.\n"
+                    f"Errors: {e1} | {e2}\n"
+                    f"Run: python train_model.py  to regenerate the model."
+                ) from e2
+
 
 # Load environment variables from .env file
 load_dotenv()
