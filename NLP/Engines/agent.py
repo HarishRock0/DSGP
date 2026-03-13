@@ -48,10 +48,30 @@ TOOLS (8 registered):
 
 import os
 import sys
+import json
 import warnings
+import datetime
 from typing import Optional
 
 warnings.filterwarnings('ignore')
+
+# ── Query logger ──────────────────────────────────────────────────────────────
+_LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'query_log.jsonl')
+
+def _log_query(query: str, route: str, confidence: float, response_preview: str) -> None:
+    """Append a single query record to query_log.jsonl for auditing."""
+    try:
+        record = {
+            'ts':         datetime.datetime.now().isoformat(timespec='seconds'),
+            'query':      query[:200],
+            'route':      route,
+            'confidence': round(confidence, 3),
+            'response':   response_preview[:300],
+        }
+        with open(_LOG_FILE, 'a', encoding='utf-8') as fh:
+            fh.write(json.dumps(record) + '\n')
+    except Exception:
+        pass   # logging must never crash the agent
 
 # Make Engines importable from any working directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -128,7 +148,8 @@ class LFSAgent:
                     self.tools,
                     llm=self.llm,
                     verbose=verbose,
-                    max_iterations=10,
+                    # FIX: cap at 3 loops — prevents compounding hallucination errors
+                    max_iterations=3,
                 )
                 print(f"\n[OK] ReActAgent ready — autonomous tool selection available as fallback")
             except ImportError as exc:
@@ -197,20 +218,42 @@ class LFSAgent:
             return conversational_response
 
         # ──── STEP 2-3: LLAMA Gate -> Try Tool Routing ──────────────────────
+        route_used = 'fast_path'
+        confidence_used = 0.0
         try:
-            return self._llama_gate_and_route(query)
+            result = self._llama_gate_and_route(query)
+            _log_query(query, route_used, confidence_used, result)
+            return result
         except Exception as exc:
-            print(f"[EMOJI][EMOJI]  LLAMA gate failed: {str(exc)[:80]} -> Falling back to ReActAgent...")
+            print(f"⚠️  LLAMA gate failed: {str(exc)[:80]} → Falling back to ReActAgent…")
+            route_used = 'react_fallback'
 
-        # ──── STEP 4: Fallback to GROQ/ReActAgent (if LLAMA unavailable) ────
+        # ──── STEP 4: Fallback to GROQ/ReActAgent ────────────────────────────
         if self.agent is not None:
             try:
-                print("[ROUTE] Routing to Groq/ReActAgent for advanced reasoning...")
+                print("[ROUTE] Routing to Groq/ReActAgent (max 3 reasoning loops)…")
                 response = self.agent.chat(query)
-                return str(response)
+                answer = str(response)
+
+                # FIX: validate tool output — reject suspiciously short or empty answers
+                if len(answer.strip()) < 20:
+                    print("⚠️  ReActAgent returned a suspiciously short answer — flagging.")
+                    answer = (
+                        f"{answer}\n\n"
+                        "⚠️ *Note: This answer may be incomplete. "
+                        "Try rephrasing your question more specifically.*"
+                    )
+
+                _log_query(query, route_used, 0.0, answer)
+                return answer
             except Exception as exc:
                 print(f"[WARN] ReActAgent also failed: {exc}")
-                return "❌ Both inference engines failed. Please check:\n- Ollama is running (ollama serve)\n- Groq API key is set (GROQ_API_KEY)"
+                _log_query(query, 'error', 0.0, str(exc))
+                return (
+                    "❌ Both inference engines failed. Please check:\n"
+                    "  • Ollama is running: ollama serve\n"
+                    "  • Groq API key is set: GROQ_API_KEY"
+                )
 
         return "❌ No inference engine available. Please run: ollama serve"
 
@@ -335,8 +378,9 @@ class LFSAgent:
         route = intent_result['route']
         confidence = intent_result['confidence']
 
-        # Tool-alignable if confidence > 0.4 (LLAMA determined some tool fits)
-        is_alignable = confidence > 0.4
+        # FIX: raised threshold 0.4 → 0.6 to reduce ReActAgent fallback frequency.
+        # Lower threshold caused ambiguous queries to be misrouted to fast-path tools.
+        is_alignable = confidence > 0.6
 
         tool_map = {
             "resource_allocation": "allocate_resources",
