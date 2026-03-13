@@ -12,7 +12,7 @@ USER QUERY
    │      [EMOJI] YES -> Direct response (no tools needed)
    │      ❌ NO  -> Continue to LLAMA gate
    │
-   ├─-> [LLAMA GATE] (tinyllama local LLM)
+   ├─-> [LLAMA GATE] (llama3.2:3b local LLM)
    │   └─ "Does this query fit any of our 8 tools?"
    │      • Classifies intent (7 categories)
    │      • Calculates tool ALIGNMENT strength (0-1)
@@ -90,7 +90,7 @@ class LFSAgent:
 
     The agent uses a 2-tier inference strategy:
 
-    TIER 1 - LLAMA GATE (tinyllama, local):
+    TIER 1 - LLAMA GATE (llama3.2:3b, local):
       • Fast, free, offline-capable LLM
       • Classifies query intent into 7 categories
       • Calculates tool ALIGNMENT strength (0-1)
@@ -164,7 +164,7 @@ class LFSAgent:
             print("   Running in Ollama-first mode (ReActAgent as fallback)")
 
         self._mode = "ollama_first"  # Always ollama-first now
-        print(f"\n[MODE] Ollama Primary (tinyllama) -> Groq Fallback (if available)")
+        print(f"\n[MODE] Ollama Primary (llama3.2:3b) -> Groq Fallback (if available)")
         print("=" * 70 + "\n")
 
     # ── Public interface ───────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ class LFSAgent:
            Check if query is greeting/meta (hi, help, etc.)
            -> Return direct response, no tools needed
            
-        2. LLAMA GATE (tinyllama)
+        2. LLAMA GATE (llama3.2:3b)
            Ask: "Does this query align with any of our 8 tools?"
            -> Determine tool relevance
            

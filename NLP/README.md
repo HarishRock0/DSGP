@@ -20,7 +20,7 @@ NLP.py  (Entry Point)
       │     └── Handles greetings / help / meta queries directly
       │
       ├── [STEP 2] LLAMA GATE  ← Engines/NLPC.py
-      │     ├── TinyLlama (Ollama, LOCAL — offline capable)
+      │     ├── Llama 3.2 3B (Ollama, LOCAL — offline capable)
       │     ├── Classifies query into 7 intent categories
       │     ├── Calculates tool alignment score (0–1)
       │     └── Keyword fallback when Ollama is unavailable
@@ -52,7 +52,7 @@ NLP.py  (Entry Point)
 
 | Tier | Engine | Role | Connectivity |
 |---|---|---|---|
-| **Tier 1** | TinyLlama via Ollama (local) | Intent classification, tool routing | ✅ Offline |
+| **Tier 1** | Llama 3.2 3B via Ollama (local) | Intent classification, tool routing | ✅ Offline |
 | **Tier 2** | Groq Cloud — Llama 3.3 70B | Complex reasoning, output formatting | 🌐 Internet needed |
 
 ---
@@ -113,9 +113,9 @@ Higher score = greater need = higher allocation priority.
 pip install -r requirement.txt
 ```
 
-### 2. Pull TinyLlama (for local intent detection)
+### 2. Pull Llama 3.2 3B (for local intent detection)
 ```bash
-ollama pull tinyllama
+ollama pull llama3.2:3b
 ollama serve
 ```
 
@@ -179,7 +179,7 @@ NLP/
 └── Engines/
     ├── agent.py            ← LFSAgent: 2-tier routing logic (LLAMA gate + ReActAgent)
     ├── LLMQ.py             ← LLMQueryEngine: Groq LLM + resource allocation pipeline
-    ├── NLPC.py             ← NLPClusterQueryEngine: TinyLlama intent + cluster operations
+    ├── NLPC.py             ← NLPClusterQueryEngine: Llama 3.2 intent + cluster operations
     ├── tools.py            ← 8 @tool functions registered as LlamaIndex FunctionTools
     └── constants.py        ← Shared lookup tables (columns, districts, sectors, etc.)
 ```
@@ -210,7 +210,7 @@ NLP/
 
 - **Income data (~86% missing)**: `Q45_A_1` is only populated for employed respondents (~2,600 of 18,937). Records with no income are scored using employment status as a proxy.
 - **No skill assessments**: LFS does not include direct skill test scores — skill gap clusters are inferred from education + digital literacy proxies.
-- **TinyLlama accuracy**: Intent classification uses a 1.1B parameter model — works well for clear queries, may misroute ambiguous ones.
+- **Llama 3.2 accuracy**: Intent classification uses a 3B parameter model — works very well for clear queries, but ReActAgent remains as a fallback.
 - **Offline mode**: Without Ollama running, automatic keyword fallback activates but with reduced routing accuracy.
 
 ---
@@ -221,7 +221,7 @@ NLP/
 |---|---|
 | `GROQ_API_KEY not set` | Set env variable or add to `.env` file in project root |
 | `Ollama not reachable` | Run `ollama serve` in a separate terminal |
-| `Model 'tinyllama' not found` | Run `ollama pull tinyllama` |
+| `Model 'llama3.2:3b' not found` | Run `ollama pull llama3.2:3b` |
 | `skilldev_model.pkl not found` | Place model file in `model/skilldev_model.pkl` |
 | `scaler.pkl not found` | Outlier detection will use approximate scaling — accuracy reduced |
 | `Import errors` | Run `pip install -r requirement.txt` |

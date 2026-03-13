@@ -73,7 +73,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Ollama LLM configuration (local inference)
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "tinyllama:latest"  # Match the actual installed model name
+OLLAMA_MODEL = "llama3.2:3b"  # Match the actual installed model name
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Intent labels used by BART zero-shot classifier.
@@ -168,7 +168,7 @@ class NLPClusterQueryEngine:
     
     def understand_query(self, query):
         """
-        Use Ollama (tinyllama) for intent detection and TOOL ALIGNMENT scoring.
+        Use Ollama (llama3.2:3b) for intent detection and TOOL ALIGNMENT scoring.
 
         GATE LOGIC:
         -----------
@@ -264,7 +264,7 @@ class NLPClusterQueryEngine:
 
     def _call_ollama_api(self, text, candidate_labels):
         """
-        Call Ollama (tinyllama) for zero-shot intent classification.
+        Call Ollama (llama3.2:3b) for zero-shot intent classification.
         Uses a simple classification prompt to classify the query against candidate labels.
         """
         # Create a simpler, more direct prompt

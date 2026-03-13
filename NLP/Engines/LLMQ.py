@@ -89,7 +89,7 @@ except ImportError as _llamaindex_err:
     Groq = None
     _LLAMA_INDEX_IMPORT_ERROR = _llamaindex_err
 
-from .constants import (
+from constants import (
     COLUMN_DESCRIPTIONS,
     SECTOR_MAP,
     DISTRICT_MAP,
