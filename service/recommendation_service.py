@@ -12,3 +12,8 @@ class RecommendationService:
     def get_insights(self, district: str):
         return self.coordinator.get_insights_for_district(district)
 
+    def allocate_budget(self, total_budget: float) -> dict:
+        return self.coordinator.allocate_budget(total_budget)
+
+    def get_risk_summary(self) -> dict:
+        return self.coordinator.get_risk_summary()
