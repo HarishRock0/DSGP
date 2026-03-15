@@ -408,7 +408,8 @@ if PROJECT_ROOT not in sys.path:
 
 from service.recommendation_service import RecommendationService
 
-st.set_page_config(page_title="Poverty Analysis — Sri Lanka District Insights", layout="wide")
+st.set_page_config(page_title="Poverty Analysis — Sri Lanka District Insights", layout="wide", initial_sidebar_state="collapsed")
+
 
 # ── Force light theme via JS (overrides any user/system dark preference) ──────
 st.markdown("""
@@ -688,6 +689,91 @@ def load_service():
     return RecommendationService()
 
 service = load_service()
+
+# ==================== POVERTY NAV SWITCHER ====================
+st.markdown("""
+<style>
+.home-btn {
+    position: fixed;
+    top: 14px;
+    left: 16px;
+    z-index: 9999;
+}
+.home-btn a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 100px;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none !important;
+    color: #7c3aed;
+    background: rgba(124,58,237,0.08);
+    border: 1.5px solid rgba(124,58,237,0.25);
+    transition: all 0.18s ease;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+}
+.home-btn a:hover {
+    background: linear-gradient(135deg,#7c3aed,#a855f7);
+    color: #fff !important;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(124,58,237,0.35);
+    text-decoration: none !important;
+}
+.pov-nav-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 32px 0 20px;
+}
+.pov-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(124,58,237,0.07);
+    border: 1px solid rgba(124,58,237,0.18);
+    border-radius: 100px;
+    padding: 4px;
+}
+.pov-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 20px;
+    border-radius: 100px;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    font-size: 0.84rem;
+    font-weight: 500;
+    text-decoration: none !important;
+    color: #7c3aed;
+    background: transparent;
+    border: none;
+    transition: all 0.18s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pov-nav a:hover {
+    background: rgba(124,58,237,0.10);
+    color: #6d28d9;
+    text-decoration: none !important;
+}
+.pov-nav a.active {
+    background: linear-gradient(135deg,#7c3aed,#a855f7);
+    color: #fff !important;
+    box-shadow: 0 4px 14px rgba(124,58,237,0.35);
+}
+</style>
+<div class="home-btn"><a href="/" target="_self">🏠&nbsp; Home</a></div>
+<div class="pov-nav-wrap">
+  <div class="pov-nav">
+    <a href="/poverty" class="active" target="_self">📊&nbsp; Regional Insights</a>
+    <a href="/poverty_resource" target="_self">💰&nbsp; Resource Allocation</a>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ==================== PAGE HEADER ====================
 st.markdown("""

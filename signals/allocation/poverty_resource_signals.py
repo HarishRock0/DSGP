@@ -7,12 +7,15 @@ class BudgetAllocationRequest(BaseModel):
 
 
 class DistrictAllocation(BaseModel):
-
-    district: str
-    risk_tier: str
-    enhanced_risk_score: float
-    allocation: float
-    allocation_pct: float
+    district:             str
+    risk_tier:            str
+    enhanced_risk_score:  float
+    risk_pct:             float
+    floor_allocation:     float
+    prop_allocation:      float
+    total_allocation:     float
+    allocation_pct:       float
+    alloc_per_hh:         float
 
 
 class BudgetAllocationResponse(BaseModel):

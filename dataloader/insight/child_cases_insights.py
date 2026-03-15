@@ -132,6 +132,17 @@ class ChildCaseDataLoader:
         if "DISTRICT_N" in demo_df.columns:
             demo_df["DISTRICT_N"] = demo_df["DISTRICT_N"].astype(str).str.strip()
 
+        # ── Normalise district names so childcases index matches demo DISTRICT_N ──
+        # childcases.xlsx          demographic_district_wise.xlsx
+        #   "Monaragala"        →  "Moneragala"
+        #   "Rathnapura"        →  "Ratnapura"
+        NAME_MAP = {
+            "Monaragala": "Moneragala",
+            "Rathnapura":  "Ratnapura",
+        }
+        # Apply to child_case_df index
+        child_case_df.index = [NAME_MAP.get(d, d) for d in child_case_df.index]
+
         return {
             "child_case_df": child_case_df,
             "demo_df": demo_df

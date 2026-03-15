@@ -13,7 +13,7 @@
 # # ---------------- SERVICE ----------------
 # from service.child_protection_service import ChildProtectionService
 #
-# st.set_page_config(page_title="Child Protection Risk Dashboard", layout="wide")
+# st.set_page_config(page_title="Child Protection Risk Dashboard", layout="wide", initial_sidebar_state="collapsed")
 #
 # # ---------------- CSS (MATCH poverty.py incl. DEMOGRAPHICS) ----------------
 # st.markdown("""
@@ -304,7 +304,8 @@ if PROJECT_ROOT not in sys.path:
 # ---------------- SERVICE ----------------
 from service.child_protection_service import ChildProtectionService
 
-st.set_page_config(page_title="Child Protection Risk Dashboard", layout="wide")
+st.set_page_config(page_title="Child Protection Risk Dashboard", layout="wide", initial_sidebar_state="collapsed")
+
 
 st.markdown("""
 <style>
@@ -523,6 +524,95 @@ def load_service():
 
 service = load_service()
 
+# ---------------- CHILD NAV SWITCHER ----------------
+st.markdown("""
+<style>
+.home-btn {
+    position: fixed;
+    top: 14px;
+    left: 16px;
+    z-index: 9999;
+}
+.home-btn a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 100px;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none !important;
+    color: #7c3aed;
+    background: rgba(124,58,237,0.08);
+    border: 1.5px solid rgba(124,58,237,0.25);
+    transition: all 0.18s ease;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+}
+.home-btn a:hover {
+    background: linear-gradient(135deg,#7c3aed,#a855f7);
+    color: #fff !important;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(124,58,237,0.35);
+    text-decoration: none !important;
+}
+.child-nav-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 32px 0 20px;
+}
+.child-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(124,58,237,0.07);
+    border: 1px solid rgba(124,58,237,0.18);
+    border-radius: 100px;
+    padding: 4px;
+}
+.child-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 20px;
+    border-radius: 100px;
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    font-size: 0.84rem;
+    font-weight: 500;
+    text-decoration: none !important;
+    color: #7c3aed;
+    background: transparent;
+    border: none;
+    transition: all 0.18s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.child-nav a:hover {
+    background: rgba(124,58,237,0.10);
+    color: #6d28d9;
+    text-decoration: none !important;
+}
+.child-nav a.active {
+    background: linear-gradient(135deg,#7c3aed,#a855f7);
+    color: #fff !important;
+    box-shadow: 0 4px 14px rgba(124,58,237,0.35);
+}
+</style>
+
+<div class="home-btn">
+  <a href="/" target="_self">🏠&nbsp; Home</a>
+</div>
+
+<div class="child-nav-wrap">
+  <div class="child-nav">
+    <a href="/childcase" class="active" target="_self">🛡️&nbsp; Regional Insights</a>
+    <a href="/childprotection" target="_self">💰&nbsp; Resource Allocation</a>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
 # ---------------- PAGE HEADER ----------------
 st.markdown("""
 <div class="page-header">
@@ -578,6 +668,8 @@ st.markdown('<span class="card-label" style="margin-bottom:0.5rem;">Top At-Risk 
 st.dataframe(rec_df, use_container_width=True, height=260)
 
 districts = rec_df["District"].tolist()
+# Normalise to Title Case so it matches child_case_df index and demo DISTRICT_N
+districts = [d.strip().title() for d in districts]
 st.divider()
 
 # ---------------- DASHBOARD — ORIGINAL UNTOUCHED ----------------
@@ -592,7 +684,15 @@ with left:
 
 # ---------------- INSIGHTS — ORIGINAL UNTOUCHED ----------------
 with st.spinner("Generating district insights..."):
-    insights = service.get_child_insights(selected_district)
+    # Normalise case: service data uses Title Case (e.g. "Mannar" not "MANNAR")
+    lookup_district = selected_district.strip().title()
+    # Fix known spelling variants returned by the recommendation service
+    DISTRICT_NAME_MAP = {
+        "Monaragala": "Moneragala",
+        "Rathnapura":  "Ratnapura",
+    }
+    lookup_district = DISTRICT_NAME_MAP.get(lookup_district, lookup_district)
+    insights = service.get_child_insights(lookup_district)
 
 child_cases = insights.get("child_cases", {})
 demo = insights.get("demographics", {})
@@ -603,7 +703,7 @@ trend = child_cases.get("trend", {}) or {}
 k1, k2, k3 = st.columns(3)
 latest_cases = list(trend.values())[-1] if trend else None
 
-k1.metric("Selected District", selected_district)
+k1.metric("Selected District", lookup_district)
 k2.metric("Latest Reported Cases", latest_cases if latest_cases else "N/A")
 k3.metric("Months Available", len(trend))
 
