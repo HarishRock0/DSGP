@@ -522,9 +522,68 @@ class LLMQueryEngine:
         n = min(num_items, len(pool))
         beneficiaries = pool.head(n).reset_index(drop=False)
 
-        # ---- 2-B. Outlier Guardrail — Confidence Score ----
-        # Measures how representative the selected candidates are by their
-        # average distance to the cluster centroid.
+        # ---- 2-B. Outlier Guardrail — Active Filtering ----
+        # Instead of just labeling trust, actively replace outlier beneficiaries
+        # (far from their cluster centroid) with next-best candidates that are
+        # closer to centroids and therefore more representative.
+        OUTLIER_DISTANCE_THRESHOLD = 3.5
+        displaced_outliers = pd.DataFrame()
+        n_replaced = 0
+
+        if 'distance_to_center' in beneficiaries.columns:
+            is_outlier = beneficiaries['distance_to_center'] > OUTLIER_DISTANCE_THRESHOLD
+            n_outliers = int(is_outlier.sum())
+
+            if n_outliers > 0:
+                print(f"⚠️  {n_outliers}/{n} beneficiaries are outliers "
+                      f"(distance > {OUTLIER_DISTANCE_THRESHOLD})")
+
+                # Separate confident picks from outliers
+                displaced_outliers = beneficiaries[is_outlier].copy()
+                confident = beneficiaries[~is_outlier].copy()
+
+                # Find replacement candidates from the remaining pool
+                selected_indices = set(beneficiaries['index'].values)
+                remaining = pool[~pool.index.isin(selected_indices)]
+
+                if 'distance_to_center' in remaining.columns:
+                    candidates = remaining[
+                        remaining['distance_to_center'] <= OUTLIER_DISTANCE_THRESHOLD
+                    ].sort_values('_need_score', ascending=False)
+
+                    n_replacements = min(n_outliers, len(candidates))
+                    if n_replacements > 0:
+                        replacements = candidates.head(n_replacements).reset_index(drop=False)
+                        beneficiaries = pd.concat(
+                            [confident, replacements], ignore_index=True
+                        )
+                        n_replaced = n_replacements
+                        print(f"✅ Replaced {n_replacements} outliers with "
+                              f"closer-to-centroid candidates")
+
+                # If still short of n, re-add least-distant outliers to fill
+                shortfall = n - len(beneficiaries)
+                if shortfall > 0 and len(displaced_outliers) > 0:
+                    backfill = displaced_outliers.sort_values(
+                        'distance_to_center'
+                    ).head(shortfall)
+                    beneficiaries = pd.concat(
+                        [beneficiaries, backfill], ignore_index=True
+                    )
+                    # Remove backfilled records from displaced list
+                    displaced_outliers = displaced_outliers[
+                        ~displaced_outliers['index'].isin(backfill['index'])
+                    ]
+                    print(f"⚠️  Re-added {len(backfill)} least-distant outliers "
+                          f"to fill allocation (not enough replacements)")
+            else:
+                print(f"✅ All {n} beneficiaries within trust threshold "
+                      f"(distance ≤ {OUTLIER_DISTANCE_THRESHOLD})")
+
+        # Update n to reflect any changes from outlier replacement
+        n = len(beneficiaries)
+
+        # Recompute trust metrics on the (possibly updated) selection
         if 'distance_to_center' in beneficiaries.columns:
             avg_dist = round(float(beneficiaries['distance_to_center'].mean()), 2)
         else:
@@ -550,13 +609,15 @@ class LLMQueryEngine:
                               'circumstances worth reviewing.')
         else:
             trust_level = 'Low'
-            trust_guidance = ('These individuals are PERIPHERAL OUTLIERS who only '
-                              'partially match the cluster profile. Be transparent that '
-                              'they fall at the boundary of the target group and may '
-                              'require manual case-by-case verification before resources '
-                              'are committed.')
+            trust_guidance = ('After filtering, these individuals still show high '
+                              'variance from cluster centres. Not enough replacement '
+                              'candidates were available. Manual case-by-case '
+                              'verification is strongly recommended.')
 
         print(f'🔍 Outlier Guardrail — avg distance: {avg_dist}, trust: {trust_level}')
+        if n_replaced > 0:
+            print(f'   ↳ {n_replaced} outliers replaced, '
+                  f'{len(displaced_outliers)} displaced to review section')
 
         # ---- 3. Build translated beneficiary table ----
         rows = []
@@ -692,15 +753,44 @@ DO NOT fabricate numbers. Use ONLY the statistics above. Be concise."""
             )
 
         # ---- 8. Python stitches full answer locally (NO LLM output token limit) ----
+        # Build displaced outliers section if any were removed by the guardrail
+        outlier_section = ""
+        if len(displaced_outliers) > 0:
+            outlier_rows = []
+            for i, (_, row) in enumerate(displaced_outliers.iterrows(), 1):
+                r = {'No': i, 'Index': int(row['index'])}
+                r['Need Score'] = round(row['_need_score'], 1)
+                r['Distance'] = round(row['distance_to_center'], 2)
+                _cl = row.get('cluster_label')
+                if _cl is not None and pd.notna(_cl):
+                    r['Group'] = str(_cl)
+                if pd.notna(row.get('AGE')):
+                    r['Age'] = int(row['AGE'])
+                if pd.notna(row.get('SEX')):
+                    r['Sex'] = 'Male' if int(row['SEX']) == 1 else 'Female'
+                if pd.notna(row.get('SECTOR')):
+                    r['Sector'] = SECTOR_MAP.get(int(row['SECTOR']), str(int(row['SECTOR'])))
+                outlier_rows.append(r)
+            outlier_df = pd.DataFrame(outlier_rows)
+            outlier_section = (
+                f"\n\n=== DISPLACED OUTLIERS ({len(displaced_outliers)} — need manual review) ===\n"
+                f"These individuals scored highly on need but are statistical outliers "
+                f"(distance to cluster centroid > {OUTLIER_DISTANCE_THRESHOLD}). They were "
+                f"replaced by more representative candidates with the next-highest need "
+                f"scores. Consider reviewing them individually before allocating resources.\n\n"
+                f"{outlier_df.to_markdown(index=False)}"
+            )
+
         final_answer = (
             f"=== RESOURCE ALLOCATION REPORT ===\n"
             f"Query: {question}\n\n"
             f"{intro_text}\n\n"
-            f"=== BENEFICIARY LIST (ALL {n} — ranked by need score) ===\n\n"
+            f"=== BENEFICIARY LIST ({n} — ranked by need score) ===\n\n"
             f"{table_str}\n\n"
             f"=== SUMMARY STATISTICS ===\n"
             f"{summary.strip()}\n\n"
             f"Data Confidence: {trust_level} — {trust_guidance}"
+            f"{outlier_section}"
         )
 
         self.last_question = question
