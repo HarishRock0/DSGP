@@ -672,6 +672,28 @@ with col_main:
     # ── Download ──────────────────────────────────────────────────────────────
     st.divider()
     csv = df.to_csv(index=False).encode("utf-8")
+    st.markdown("""
+<style>
+[data-testid="stDownloadButton"] > button {
+    background: #ffffff !important;
+    color: #7c3aed !important;
+    border: 1.5px solid rgba(124,58,237,0.35) !important;
+    border-radius: 10px !important;
+    font-family: 'DM Sans','Inter',sans-serif !important;
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    padding: 10px 22px !important;
+    box-shadow: 0 2px 8px rgba(124,58,237,0.10) !important;
+    transition: all 0.18s ease !important;
+}
+[data-testid="stDownloadButton"] > button:hover {
+    background: linear-gradient(135deg,#7c3aed,#a855f7) !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+    box-shadow: 0 4px 14px rgba(124,58,237,0.35) !important;
+}
+</style>
+""", unsafe_allow_html=True)
     st.download_button(
         label     = "⬇  Export CSV",
         data      = csv,

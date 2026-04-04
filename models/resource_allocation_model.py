@@ -142,3 +142,4 @@ class ResourceAllocationModel:
             out.sort_values("total_allocation", ascending=False)
             .reset_index(drop=True)
         )
+

@@ -1,9 +1,11 @@
+import os
 from fastapi import FastAPI
 from pydantic import BaseModel
-from recommendation_service import RecommendationService
+from service.recommendation_service import RecommendationService
 
 app = FastAPI()
-recommendation_service = RecommendationService()
+
+recommendation_service = RecommendationService()  # ← remove project_root
 
 
 class RecommendationRequest(BaseModel):
@@ -22,4 +24,3 @@ def get_recommendations(request: RecommendationRequest):
 @app.post("/insights")
 def get_insights(request: InsightsRequest):
     return recommendation_service.get_insights(request.district)
-

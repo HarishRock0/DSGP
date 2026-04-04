@@ -1,107 +1,293 @@
 # import streamlit as st
+# import streamlit.components.v1 as components
 #
 # st.set_page_config(
 #     page_title="Sri Lanka District Insights",
-#     layout="wide"
+#     layout="wide",
+#     initial_sidebar_state="collapsed"
 # )
 #
-# # -------------------- CUSTOM CSS --------------------
 # st.markdown("""
 # <style>
-#     body {
-#         background-color: #0e1117;
-#     }
-#     .card {
-#         background: #161b22;
-#         padding: 2rem;
-#         border-radius: 16px;
-#         text-align: center;
-#         transition: all 0.3s ease;
-#         height: 100%;
-#     }
-#     .card:hover {
-#         transform: translateY(-8px);
-#         box-shadow: 0 20px 40px rgba(88,166,255,0.15);
-#         border: 1px solid #58a6ff;
-#     }
-#     .card h2 {
-#         margin-bottom: 0.5rem;
-#     }
-#     .card p {
-#         color: #8b949e;
-#         font-size: 1.05rem;
-#     }
-#     .card-btn {
-#         margin-top: 1.2rem;
-#     }
+# @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&display=swap');
+# [data-testid="stHeader"], footer, [data-testid="stToolbar"],
+# [data-testid="stDecoration"] { display:none !important; }
+# html, body, [data-testid="stAppViewContainer"] { background:#f5f3ff !important; }
+# [data-testid="block-container"] { padding:0 !important; max-width:100% !important; }
+# [data-testid="stVerticalBlock"] { gap:0 !important; }
+# [data-testid="stHorizontalBlock"] {
+#     padding: 0 5vw 5rem !important;
+#     max-width: 1260px !important;
+#     margin: 0 auto !important;
+#     background: #f5f3ff;
+# }
+# [data-testid="column"] { padding: 0 0.6rem !important; }
+# .stButton > button {
+#     width:100% !important; background:#6d28d9 !important;
+#     color:#fff !important; border:none !important; border-radius:10px !important;
+#     font-family:'Outfit',sans-serif !important; font-size:.88rem !important;
+#     font-weight:600 !important; letter-spacing:.03em !important;
+#     padding:.78rem 1.5rem !important; transition:all .2s cubic-bezier(.34,1.56,.64,1) !important;
+#     box-shadow:0 4px 16px rgba(109,40,217,.28) !important; cursor:pointer !important;
+#     position:relative !important; overflow:hidden !important;
+# }
+# .stButton > button:hover {
+#     background:#5b21b6 !important; transform:translateY(-3px) scale(1.02) !important;
+#     box-shadow:0 12px 32px rgba(109,40,217,.40) !important;
+# }
+# .stButton > button:active {
+#     transform:translateY(0px) scale(0.98) !important;
+#     box-shadow:0 2px 8px rgba(109,40,217,.25) !important;
+#     background:#4c1d95 !important;
+# }
 # </style>
 # """, unsafe_allow_html=True)
 #
-# # -------------------- HEADER --------------------
-# st.markdown("""
-# <div style="text-align:center; padding: 2.5rem 0;">
-#     <h1 style="color:lightblue;">Sri Lanka District Insights</h1>
-#     <p style="font-size:1.2rem; color:#8b949e;">
-#         Poverty • Child Protection • Mental Health — Interactive Decision Support
-#     </p>
+# # ── HERO + NAV + STATS ───────────────────────────────────────────────────────
+# components.html("""<!DOCTYPE html><html><head><meta charset="UTF-8">
+# <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+# <style>
+# *{margin:0;padding:0;box-sizing:border-box;}
+# :root{--ink:#0f0a1e;--muted:#6b5f8a;--viv:#6d28d9;--mid:#8b5cf6;--lite:#a78bfa;--pale:#ede9fe;--wash:#f5f3ff;--bd:rgba(109,40,217,.13);--bdd:rgba(109,40,217,.26);}
+# body{font-family:'Outfit',sans-serif;background:#fff;color:var(--ink);}
+# nav{position:sticky;top:0;z-index:99;background:rgba(255,255,255,.93);backdrop-filter:blur(18px);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 5vw;height:66px;}
+# .logo{display:flex;align-items:center;gap:.65rem;}
+# .emblem{width:34px;height:34px;background:var(--viv);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;}
+# .wordmark{font-family:'Cormorant Garamond',serif;font-size:1.22rem;font-weight:700;color:var(--ink);}
+# .wordmark span{color:var(--viv);}
+# .links{display:flex;gap:2.2rem;align-items:center;}
+# .lnk{font-size:.84rem;font-weight:500;color:var(--muted);text-decoration:none;transition:color .2s;}
+# .lnk:hover{color:var(--viv);}
+# .cta{background:var(--viv);color:#fff !important;padding:.48rem 1.15rem;border-radius:8px;font-weight:600;font-size:.81rem;letter-spacing:.04em;transition:background .2s,transform .2s;}
+# .cta:hover{background:var(--ink) !important;transform:translateY(-1px);}
+# .hero{background:radial-gradient(ellipse 65% 55% at 65% -5%,rgba(109,40,217,.09) 0%,transparent 70%),radial-gradient(ellipse 45% 35% at 5% 85%,rgba(167,139,250,.07) 0%,transparent 60%),#fff;padding:6.5rem 5vw 5rem;display:flex;align-items:center;gap:4.5rem;max-width:1260px;margin:0 auto;}
+# .hl{flex:1;}
+# .hr{flex:0 0 400px;}
+# .eye{display:inline-flex;align-items:center;gap:.5rem;background:var(--pale);color:var(--viv);font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;padding:.38rem 1rem;border-radius:100px;border:1px solid var(--bdd);margin-bottom:1.7rem;animation:up .6s ease both;}
+# .edot{width:6px;height:6px;border-radius:50%;background:var(--viv);animation:pu 2s infinite;}
+# h1{font-family:'Cormorant Garamond',serif;font-size:clamp(3rem,5vw,4.8rem);font-weight:700;line-height:1.06;color:var(--ink);letter-spacing:-.02em;margin:0 0 1.4rem;animation:up .7s ease .1s both;}
+# h1 em{font-style:italic;color:var(--viv);}
+# .hp{font-size:1rem;font-weight:300;color:var(--muted);line-height:1.78;max-width:470px;margin:0 0 2.3rem;animation:up .7s ease .2s both;}
+# .btns{display:flex;gap:.9rem;align-items:center;animation:up .7s ease .3s both;}
+# .bp{background:var(--viv);color:#fff;border:none;padding:.82rem 1.9rem;border-radius:10px;font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:600;letter-spacing:.03em;cursor:pointer;transition:all .25s;box-shadow:0 4px 20px rgba(109,40,217,.3);}
+# .bp:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(109,40,217,.42);background:var(--ink);}
+# .bg{background:transparent;color:var(--muted);border:1px solid var(--bdd);padding:.82rem 1.6rem;border-radius:10px;font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:500;cursor:pointer;transition:all .25s;}
+# .bg:hover{border-color:var(--mid);color:var(--viv);}
+# .panel{background:var(--wash);border:1px solid var(--bdd);border-radius:22px;padding:1.8rem;animation:lft .8s ease .35s both;}
+# .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.4rem;}
+# .pt{font-size:.74rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);}
+# .plv{display:flex;align-items:center;gap:.38rem;font-size:.7rem;font-weight:600;color:#059669;}
+# .ldot{width:6px;height:6px;border-radius:50%;background:#10b981;animation:pu 1.5s infinite;}
+# .sg{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:1.1rem;}
+# .sb{background:#fff;border:1px solid var(--bd);border-radius:13px;padding:.9rem 1.1rem;}
+# .sn{font-family:'Cormorant Garamond',serif;font-size:2.1rem;font-weight:700;color:var(--viv);line-height:1;}
+# .sl{font-size:.68rem;color:var(--muted);font-weight:500;margin-top:.22rem;text-transform:uppercase;letter-spacing:.08em;}
+# .br{display:flex;align-items:center;gap:.75rem;margin-bottom:.65rem;}
+# .bl{font-size:.7rem;color:var(--muted);width:76px;flex-shrink:0;}
+# .bt{flex:1;height:6px;background:var(--bd);border-radius:3px;overflow:hidden;}
+# .bf{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--viv),var(--lite));}
+# .bv{font-size:.7rem;font-weight:600;color:#2e2250;width:28px;text-align:right;}
+# .strip{background:#fff;padding:2.4rem 5vw;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);}
+# .si{max-width:1260px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);background:var(--wash);border:1px solid var(--bdd);border-radius:14px;overflow:hidden;}
+# .sc{background:var(--wash);padding:1.9rem;text-align:center;}
+# .scn{font-family:'Cormorant Garamond',serif;font-size:2.7rem;font-weight:700;color:var(--viv);line-height:1;}
+# .scl{font-size:.74rem;color:var(--muted);font-weight:400;margin-top:.38rem;letter-spacing:.09em;text-transform:uppercase;}
+# @keyframes up{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:translateY(0);}}
+# @keyframes lft{from{opacity:0;transform:translateX(26px);}to{opacity:1;transform:translateX(0);}}
+# @keyframes pu{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(1.4);}}
+# </style></head><body>
+# <nav>
+#   <div class="logo"><div class="emblem">🇱🇰</div><div class="wordmark">District <span>Insights</span></div></div>
+#   <div class="links">
+#     <a class="lnk" href="#">Platform</a>
+#     <a class="lnk" href="#">About</a>
+#     <a class="lnk" href="#">Modules</a>
+#     <a class="lnk cta" href="#">Get Access</a>
+#   </div>
+# </nav>
+# <div class="hero">
+#   <div class="hl">
+#     <div class="eye"><div class="edot"></div>Interactive Decision Support Platform</div>
+#     <h1>Sri Lanka<br><em>District</em><br>Insights</h1>
+#     <p class="hp">Evidence-based analytics across poverty, child protection, and skill development — empowering smarter resource allocation for 25 districts nationwide.</p>
+#     <div class="btns"><button class="bp">Explore the Platform →</button><button class="bg">View Methodology</button></div>
+#   </div>
+#   <div class="hr">
+#     <div class="panel">
+#       <div class="ph"><div class="pt">Live Dashboard Preview</div><div class="plv"><div class="ldot"></div>Real-time</div></div>
+#       <div class="sg">
+#         <div class="sb"><div class="sn">25</div><div class="sl">Districts</div></div>
+#         <div class="sb"><div class="sn">3</div><div class="sl">Modules</div></div>
+#         <div class="sb"><div class="sn">98%</div><div class="sl">Coverage</div></div>
+#         <div class="sb"><div class="sn">2024</div><div class="sl">Data Year</div></div>
+#       </div>
+#       <div class="br"><div class="bl">Poverty Index</div><div class="bt"><div class="bf" style="width:78%"></div></div><div class="bv">78%</div></div>
+#       <div class="br"><div class="bl">Child Welfare</div><div class="bt"><div class="bf" style="width:64%"></div></div><div class="bv">64%</div></div>
+#       <div class="br"><div class="bl">Skill Dev.</div><div class="bt"><div class="bf" style="width:52%"></div></div><div class="bv">52%</div></div>
+#     </div>
+#   </div>
 # </div>
-# """, unsafe_allow_html=True)
+# <div class="strip">
+#   <div class="si">
+#     <div class="sc"><div class="scn">25</div><div class="scl">Districts Covered</div></div>
+#     <div class="sc"><div class="scn">3</div><div class="scl">Analytics Modules</div></div>
+#     <div class="sc"><div class="scn">100%</div><div class="scl">Data Coverage</div></div>
+#     <div class="sc"><div class="scn">Live</div><div class="scl">Integration Status</div></div>
+#   </div>
+# </div>
+# </body></html>""", height=920, scrolling=False)
 #
-# # -------------------- SESSION STATE --------------------
-# if "page" not in st.session_state:
-#     st.session_state.page = "home"
-#
-# # -------------------- HOME PAGE CONTENT --------------------
-# col1, col2, col3 = st.columns(3, gap="large")
-#
-# with col1:
-#     st.markdown("""
-#     <div class="card">
-#         <h2>Poverty Analysis</h2>
-#         <p>
-#             Identify high-poverty districts and allocate
-#             development projects where impact is highest.
-#         </p>
+# # ── ABOUT ────────────────────────────────────────────────────────────────────
+# components.html("""<!DOCTYPE html><html><head><meta charset="UTF-8">
+# <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+# <style>
+# *{margin:0;padding:0;box-sizing:border-box;}
+# :root{--ink:#0f0a1e;--muted:#6b5f8a;--viv:#6d28d9;--mid:#8b5cf6;--pale:#ede9fe;--wash:#f5f3ff;--bd:rgba(109,40,217,.13);--bdd:rgba(109,40,217,.26);}
+# body{font-family:'Outfit',sans-serif;background:#fff;color:var(--ink);}
+# .about{padding:6rem 5vw;max-width:1260px;margin:0 auto;}
+# .sl{display:inline-flex;align-items:center;gap:.5rem;font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--viv);margin-bottom:.9rem;}
+# .sl::before{content:'';display:block;width:22px;height:2px;background:var(--viv);}
+# .grid{display:grid;grid-template-columns:1fr 1fr;gap:5.5rem;align-items:start;}
+# h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.9rem,3.2vw,3rem);font-weight:700;line-height:1.1;color:var(--ink);letter-spacing:-.02em;margin:0 0 1.3rem;}
+# h2 strong{color:var(--viv);}
+# p{font-size:.94rem;font-weight:300;color:var(--muted);line-height:1.8;margin-bottom:1.1rem;}
+# .pillars{display:flex;flex-direction:column;gap:.95rem;}
+# .pillar{display:flex;gap:1.1rem;align-items:flex-start;padding:1.1rem 1.2rem;background:var(--wash);border:1px solid var(--bd);border-radius:14px;transition:border-color .25s;}
+# .pillar:hover{border-color:var(--mid);}
+# .pico{width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid var(--bdd);display:flex;align-items:center;justify-content:center;font-size:1.05rem;flex-shrink:0;}
+# .ptitle{font-weight:600;font-size:.86rem;color:var(--ink);margin-bottom:.18rem;}
+# .pdesc{font-size:.78rem;color:var(--muted);line-height:1.55;}
+# </style></head><body>
+# <div class="about">
+#   <div class="sl">About the Platform</div>
+#   <div class="grid">
+#     <div>
+#       <h2>Built for those who<br><strong>shape policy</strong><br>across Sri Lanka</h2>
+#       <p>Sri Lanka District Insights is a decision-support platform designed for government officials, policymakers, and development planners. It translates complex district-level data into clear, actionable intelligence.</p>
+#       <p>By consolidating socio-economic indicators across three critical domains, the platform enables faster, more equitable resource allocation — ensuring interventions reach the communities that need them most.</p>
 #     </div>
-#     """, unsafe_allow_html=True)
-#
-#     if st.button("Explore Poverty Data", key="poverty_btn", use_container_width=True):
-#         # Updated path to include pages/ folder
-#         st.switch_page("pages/poverty.py")
-#
-# with col2:
-#     st.markdown("""
-#     <div class="card">
-#         <h2>Child Protection</h2>
-#         <p>
-#             Analyze vulnerable child populations and
-#             optimize child protection service deployment.
-#         </p>
+#     <div class="pillars">
+#       <div class="pillar"><div class="pico">📊</div><div><div class="ptitle">Evidence-First Analytics</div><div class="pdesc">Every insight is grounded in verified district-level data. Transparent methodology, fully traceable sources.</div></div></div>
+#       <div class="pillar"><div class="pico">🎯</div><div><div class="ptitle">Equity-Centered Design</div><div class="pdesc">Built to surface disparities and prioritize underserved regions — ensuring no district is overlooked.</div></div></div>
+#       <div class="pillar"><div class="pico">⚡</div><div><div class="ptitle">Real-Time Integration</div><div class="pdesc">Dashboards reflect the latest data, enabling decision-makers to respond to emerging needs swiftly.</div></div></div>
 #     </div>
-#     """, unsafe_allow_html=True)
+#   </div>
+# </div>
+# </body></html>""", height=560, scrolling=False)
 #
-#     if st.button("View Child Protection Insights", key="child_btn", use_container_width=True):
-#         # Updated path to include pages/ folder
-#         st.switch_page("pages/childcase.py")
-#
-# with col3:
-#     st.markdown("""
-#     <div class="card">
-#         <h2>Mental Health Services</h2>
-#         <p>
-#             Understand district-level mental health needs
-#             and resource gaps.
-#         </p>
+# # ── MODULE CARDS ─────────────────────────────────────────────────────────────
+# components.html("""<!DOCTYPE html><html><head><meta charset="UTF-8">
+# <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+# <style>
+# *{margin:0;padding:0;box-sizing:border-box;}
+# :root{--ink:#0f0a1e;--muted:#6b5f8a;--viv:#6d28d9;--mid:#8b5cf6;--lite:#a78bfa;--pale:#ede9fe;--wash:#f5f3ff;--bd:rgba(109,40,217,.13);--bdd:rgba(109,40,217,.26);}
+# body{font-family:'Outfit',sans-serif;background:var(--wash);color:var(--ink);}
+# .sec{padding:5.5rem 5vw 3.5rem;border-top:1px solid var(--bd);}
+# .inner{max-width:1260px;margin:0 auto;}
+# .hd{text-align:center;margin-bottom:3.5rem;}
+# .sl{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--viv);margin-bottom:.9rem;}
+# .sl::before,.sl::after{content:'';display:block;width:22px;height:2px;background:var(--viv);}
+# h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.9rem,3.2vw,2.9rem);font-weight:700;line-height:1.1;color:var(--ink);letter-spacing:-.02em;margin:.5rem 0 .9rem;}
+# .sub{font-size:.94rem;color:var(--muted);font-weight:300;max-width:500px;margin:0 auto;line-height:1.7;}
+# .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.6rem;}
+# .card{background:#fff;border:1px solid var(--bdd);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;transition:transform .3s cubic-bezier(.34,1.4,.64,1),box-shadow .3s,border-color .3s;}
+# .card:hover{transform:translateY(-10px);box-shadow:0 28px 60px rgba(109,40,217,.14);border-color:var(--mid);}
+# .ct{padding:1.9rem 1.9rem 1.4rem;border-bottom:1px solid var(--bd);position:relative;}
+# .cn{position:absolute;top:1.3rem;right:1.6rem;font-family:'Cormorant Garamond',serif;font-size:3.8rem;font-weight:700;color:var(--pale);line-height:1;user-select:none;}
+# .ci{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.35rem;margin-bottom:1.2rem;border:1px solid var(--bdd);}
+# .i1{background:linear-gradient(135deg,#ede9fe,#ddd6fe);}
+# .i2{background:linear-gradient(135deg,#f5f3ff,#ede9fe);}
+# .i3{background:linear-gradient(135deg,#eef2ff,#e0e7ff);}
+# .tag{display:inline-block;font-size:.64rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--viv);background:var(--pale);border:1px solid var(--bdd);padding:.2rem .7rem;border-radius:100px;margin-bottom:.8rem;}
+# .ctitle{font-family:'Cormorant Garamond',serif;font-size:1.65rem;font-weight:700;color:var(--ink);letter-spacing:-.01em;}
+# .cb{padding:1.4rem 1.9rem 1.6rem;display:flex;flex-direction:column;flex:1;}
+# .desc{font-size:.85rem;color:var(--muted);line-height:1.7;margin-bottom:1.3rem;font-weight:300;}
+# .mts{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.4rem;}
+# .mt{display:flex;align-items:center;gap:.55rem;font-size:.78rem;color:var(--muted);}
+# .md{width:5px;height:5px;border-radius:50%;background:var(--mid);flex-shrink:0;}
+# .cf{display:flex;align-items:center;justify-content:space-between;padding-top:1rem;border-top:1px solid var(--bd);margin-bottom:1.4rem;}
+# .act{display:flex;align-items:center;gap:.38rem;font-size:.7rem;font-weight:600;color:#059669;}
+# .ad{width:6px;height:6px;border-radius:50%;background:#10b981;animation:pu 1.8s infinite;}
+# .btn{display:block;width:100%;padding:.82rem 1rem;background:var(--viv);color:#fff;border:none;border-radius:12px;font-family:'Outfit',sans-serif;font-size:.875rem;font-weight:600;letter-spacing:.03em;cursor:pointer;text-align:center;transition:all .22s cubic-bezier(.34,1.4,.64,1);box-shadow:0 4px 18px rgba(109,40,217,.28);margin-top:auto;position:relative;overflow:hidden;}
+# .btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);transition:background .2s;}
+# .btn:hover{background:#5b21b6;transform:translateY(-2px) scale(1.02);box-shadow:0 10px 32px rgba(109,40,217,.38);}
+# .btn:hover::after{background:rgba(255,255,255,.05);}
+# .btn:active{transform:translateY(1px) scale(.98);box-shadow:0 2px 10px rgba(109,40,217,.22);}
+# .arr{display:inline-block;transition:transform .2s;}
+# .btn:hover .arr{transform:translateX(4px);}
+# @keyframes pu{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(1.5);}}
+# </style></head><body>
+# <div class="sec">
+#   <div class="inner">
+#     <div class="hd">
+#       <div class="sl">Analytics Modules</div>
+#       <h2>Three domains.<br>One unified platform.</h2>
+#       <p class="sub">Each module delivers deep, district-level intelligence across a critical domain of social and economic development.</p>
 #     </div>
-#     """, unsafe_allow_html=True)
+#     <div class="grid">
+#       <div class="card">
+#         <div class="ct"><div class="cn">01</div><div class="ci i1">💰</div><div class="tag">Economic Analysis</div><div class="ctitle">Poverty Analysis</div></div>
+#         <div class="cb">
+#           <p class="desc">Identify high-poverty districts and allocate development projects where social impact is greatest.</p>
+#           <div class="mts"><div class="mt"><div class="md"></div>District-level poverty mapping</div><div class="mt"><div class="md"></div>Resource allocation scoring</div><div class="mt"><div class="md"></div>Trend forecasting models</div></div>
+#           <div class="cf"><div class="act"><div class="ad"></div>Active</div></div>
+#           <button class="btn" onclick="window.location.href='?nav=poverty'">Explore Poverty Data <span class="arr">→</span></button>
+#         </div>
+#       </div>
+#       <div class="card">
+#         <div class="ct"><div class="cn">02</div><div class="ci i2">🛡️</div><div class="tag">Social Protection</div><div class="ctitle">Child Protection</div></div>
+#         <div class="cb">
+#           <p class="desc">Analyze vulnerable child populations and optimize child protection service deployment across regions.</p>
+#           <div class="mts"><div class="mt"><div class="md"></div>Vulnerability heat-mapping</div><div class="mt"><div class="md"></div>Service gap identification</div><div class="mt"><div class="md"></div>Intervention prioritization</div></div>
+#           <div class="cf"><div class="act"><div class="ad"></div>Active</div></div>
+#           <button class="btn" onclick="window.location.href='?nav=child'">View Child Protection Insights <span class="arr">→</span></button>
+#         </div>
+#       </div>
+#       <div class="card">
+#         <div class="ct"><div class="cn">03</div><div class="ci i3">🎓</div><div class="tag">Development Services</div><div class="ctitle">Skill Development</div></div>
+#         <div class="cb">
+#           <p class="desc">Understand district-level skill development program allocation and workforce readiness gaps.</p>
+#           <div class="mts"><div class="mt"><div class="md"></div>Needs assessment dashboard</div><div class="mt"><div class="md"></div>Facility coverage analysis</div><div class="mt"><div class="md"></div>Workforce gap metrics</div></div>
+#           <div class="cf"><div class="act"><div class="ad"></div>Active</div></div>
+#           <button class="btn" onclick="window.location.href='?nav=skills'">Skill Allocation Dashboard <span class="arr">→</span></button>
+#         </div>
+#       </div>
+#     </div>
+#   </div>
+# </div>
+# </body></html>""", height=920, scrolling=False)
 #
-#     if st.button("Mental Health Dashboard", key="mental_btn", use_container_width=True):
-#         # Updated path to include pages/ folder
-#         st.switch_page("pages/mentalhealth.py")
+# # ── CARD BUTTON NAVIGATION ────────────────────────────────────────────────────
+# nav = st.query_params.get("nav", "")
+# if nav == "poverty":
+#     st.switch_page("pages/poverty.py")
+# elif nav == "child":
+#     st.switch_page("pages/childcase.py")
+# elif nav == "skills":
+#     st.switch_page("pages/App.py")
+#
+# # ── FOOTER ───────────────────────────────────────────────────────────────────
+# components.html("""<!DOCTYPE html><html><head><meta charset="UTF-8">
+# <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&family=Outfit:wght@400&display=swap" rel="stylesheet">
+# <style>
+# *{margin:0;padding:0;box-sizing:border-box;}
+# body{font-family:'Outfit',sans-serif;background:#f5f3ff;}
+# footer{padding:2.6rem 5vw;border-top:1px solid rgba(109,40,217,.13);}
+# .inner{max-width:1260px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;}
+# .logo{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:700;color:#0f0a1e;}
+# .logo span{color:#6d28d9;}
+# .meta{font-size:.76rem;color:#6b5f8a;}
+# </style></head><body>
+# <footer><div class="inner">
+#   <div class="logo">District <span>Insights</span></div>
+#   <div class="meta">© 2024 Sri Lanka District Insights · Built for policymakers</div>
+#   <div style="font-size:1.4rem">🇱🇰</div>
+# </div></footer>
+# </body></html>""", height=88, scrolling=False)
 
 
 import streamlit as st
-import time
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="Sri Lanka District Insights",
@@ -109,431 +295,304 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# -------------------- CUSTOM CSS --------------------
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap');
-
-    :root {
-        --purple-deep:    #1a0533;
-        --purple-mid:     #3d1170;
-        --purple-vivid:   #7c3aed;
-        --purple-light:   #a855f7;
-        --purple-glow:    #c084fc;
-        --white-pure:     #ffffff;
-        --white-soft:     #f3e8ff;
-        --white-muted:    #d8b4fe;
-        --accent-gold:    #fbbf24;
-    }
-
-    /* ---- Base ---- */
-    html, body, [data-testid="stAppViewContainer"] {
-        background: var(--purple-deep) !important;
-        font-family: 'DM Sans', sans-serif;
-    }
-    [data-testid="stAppViewContainer"] {
-        background:
-            radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124,58,237,0.45) 0%, transparent 70%),
-            radial-gradient(ellipse 60% 40% at 85% 80%, rgba(168,85,247,0.20) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 50% at 10% 90%, rgba(109,40,217,0.25) 0%, transparent 60%),
-            var(--purple-deep) !important;
-    }
-    [data-testid="stHeader"], footer { display: none !important; }
-    [data-testid="block-container"] {
-        padding: 0 3rem 4rem 3rem !important;
-        max-width: 1300px;
-        margin: 0 auto;
-    }
-
-    /* ---- Animated noise overlay ---- */
-    body::before {
-        content: '';
-        position: fixed; inset: 0;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-        pointer-events: none;
-        z-index: 9999;
-    }
-
-    /* ---- Hero ---- */
-    .hero-wrap {
-        text-align: center;
-        padding: 5rem 1rem 3.5rem;
-        position: relative;
-    }
-    .hero-badge {
-        display: inline-block;
-        background: rgba(124,58,237,0.25);
-        border: 1px solid rgba(168,85,247,0.5);
-        color: var(--purple-glow);
-        font-size: 0.78rem;
-        font-weight: 600;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        padding: 0.4rem 1.1rem;
-        border-radius: 100px;
-        margin-bottom: 1.4rem;
-        backdrop-filter: blur(8px);
-        animation: fadeDown 0.7s ease both;
-    }
-    .hero-title {
-        font-family: 'Playfair Display', serif;
-        font-size: clamp(2.6rem, 5vw, 4.2rem);
-        font-weight: 900;
-        color: var(--white-pure);
-        line-height: 1.12;
-        margin: 0 0 0.6rem;
-        animation: fadeDown 0.85s ease 0.1s both;
-    }
-    .hero-title span {
-        background: linear-gradient(135deg, var(--purple-light), var(--purple-glow), var(--accent-gold));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    .hero-subtitle {
-        font-size: 1.15rem;
-        color: var(--white-muted);
-        font-weight: 300;
-        letter-spacing: 0.02em;
-        max-width: 560px;
-        margin: 0 auto 0.5rem;
-        animation: fadeDown 0.95s ease 0.2s both;
-    }
-    .hero-divider {
-        width: 80px;
-        height: 3px;
-        background: linear-gradient(90deg, transparent, var(--purple-vivid), transparent);
-        margin: 2rem auto 0;
-        border-radius: 2px;
-        animation: fadeDown 1s ease 0.3s both;
-    }
-
-    /* ---- Stats row ---- */
-    .stats-row {
-        display: flex;
-        justify-content: center;
-        gap: 3rem;
-        padding: 1.5rem 0 2.5rem;
-        animation: fadeUp 0.9s ease 0.4s both;
-    }
-    .stat-item { text-align: center; }
-    .stat-number {
-        font-family: 'Playfair Display', serif;
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--purple-glow);
-        line-height: 1;
-    }
-    .stat-label {
-        font-size: 0.78rem;
-        color: var(--white-muted);
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        margin-top: 0.25rem;
-    }
-    .stat-sep {
-        width: 1px;
-        background: rgba(168,85,247,0.3);
-        align-self: stretch;
-    }
-
-    /* ---- Cards ---- */
-    .cards-section {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1.6rem;
-        animation: fadeUp 0.9s ease 0.55s both;
-    }
-    .module-card {
-        position: relative;
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(168,85,247,0.2);
-        border-radius: 20px;
-        padding: 2.2rem 1.8rem 1.6rem;
-        overflow: hidden;
-        transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
-        cursor: default;
-    }
-    .module-card::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(135deg, rgba(124,58,237,0.12) 0%, transparent 60%);
-        opacity: 0;
-        transition: opacity 0.35s ease;
-    }
-    .module-card:hover {
-        transform: translateY(-10px);
-        border-color: rgba(168,85,247,0.7);
-        box-shadow: 0 24px 60px rgba(124,58,237,0.35), 0 0 0 1px rgba(168,85,247,0.15);
-    }
-    .module-card:hover::before { opacity: 1; }
-    .card-icon-wrap {
-        width: 52px; height: 52px;
-        border-radius: 14px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.5rem;
-        margin-bottom: 1.3rem;
-    }
-    .icon-poverty  { background: linear-gradient(135deg, #4c1d95, #7c3aed); }
-    .icon-child    { background: linear-gradient(135deg, #5b21b6, #a855f7); }
-    .icon-mental   { background: linear-gradient(135deg, #6d28d9, #c084fc); }
-    .card-number {
-        position: absolute;
-        top: 1.4rem; right: 1.6rem;
-        font-family: 'Playfair Display', serif;
-        font-size: 3.5rem;
-        font-weight: 900;
-        color: rgba(168,85,247,0.07);
-        line-height: 1;
-        user-select: none;
-    }
-    .card-tag {
-        display: inline-block;
-        font-size: 0.68rem;
-        font-weight: 600;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--purple-glow);
-        background: rgba(124,58,237,0.2);
-        border: 1px solid rgba(168,85,247,0.3);
-        padding: 0.22rem 0.7rem;
-        border-radius: 100px;
-        margin-bottom: 0.85rem;
-    }
-    .card-title {
-        font-family: 'Playfair Display', serif;
-        font-size: 1.45rem;
-        font-weight: 700;
-        color: var(--white-pure);
-        margin: 0 0 0.7rem;
-        line-height: 1.25;
-    }
-    .card-desc {
-        font-size: 0.93rem;
-        color: var(--white-muted);
-        line-height: 1.65;
-        margin-bottom: 1.5rem;
-    }
-    .card-metric {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.82rem;
-        color: rgba(216,180,254,0.7);
-        margin-bottom: 0.35rem;
-    }
-    .card-metric::before {
-        content: '';
-        display: inline-block;
-        width: 6px; height: 6px;
-        border-radius: 50%;
-        background: var(--purple-light);
-        flex-shrink: 0;
-    }
-    .card-footer {
-        margin-top: 1.4rem;
-        padding-top: 1.2rem;
-        border-top: 1px solid rgba(168,85,247,0.12);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .card-status {
-        font-size: 0.75rem;
-        color: #6ee7b7;
-        background: rgba(110,231,183,0.1);
-        border: 1px solid rgba(110,231,183,0.25);
-        padding: 0.2rem 0.65rem;
-        border-radius: 100px;
-    }
-    .card-arrow {
-        font-size: 1.1rem;
-        color: var(--purple-light);
-        transition: transform 0.2s ease;
-    }
-    .module-card:hover .card-arrow { transform: translateX(5px); }
-
-    /* ---- Bottom info bar ---- */
-    .info-bar {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 2.5rem;
-        margin-top: 3rem;
-        padding: 1.2rem 2rem;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(168,85,247,0.15);
-        border-radius: 14px;
-        animation: fadeUp 0.9s ease 0.7s both;
-    }
-    .info-item {
-        display: flex;
-        align-items: center;
-        gap: 0.55rem;
-        font-size: 0.82rem;
-        color: var(--white-muted);
-    }
-    .info-dot {
-        width: 8px; height: 8px;
-        border-radius: 50%;
-        background: var(--purple-light);
-        box-shadow: 0 0 8px var(--purple-vivid);
-        animation: pulse 2s ease-in-out infinite;
-    }
-
-    /* ---- Streamlit button overrides ---- */
-    .stButton > button {
-        width: 100%;
-        background: linear-gradient(135deg, var(--purple-vivid), var(--purple-light)) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 10px !important;
-        font-family: 'DM Sans', sans-serif !important;
-        font-size: 0.88rem !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.04em !important;
-        padding: 0.65rem 1.2rem !important;
-        cursor: pointer !important;
-        transition: all 0.25s ease !important;
-        box-shadow: 0 4px 20px rgba(124,58,237,0.4) !important;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 28px rgba(124,58,237,0.6) !important;
-        background: linear-gradient(135deg, var(--purple-light), var(--purple-glow)) !important;
-    }
-    .stButton > button:active {
-        transform: translateY(0) !important;
-    }
-
-    /* ---- Column gaps ---- */
-    [data-testid="column"] { padding: 0 0.5rem !important; }
-
-    /* ---- Animations ---- */
-    @keyframes fadeDown {
-        from { opacity: 0; transform: translateY(-22px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes fadeUp {
-        from { opacity: 0; transform: translateY(22px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50%       { opacity: 0.5; transform: scale(1.3); }
-    }
-    @keyframes shimmer {
-        0%   { background-position: -200% center; }
-        100% { background-position:  200% center; }
-    }
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&display=swap');
+[data-testid="stHeader"], footer, [data-testid="stToolbar"],
+[data-testid="stDecoration"] { display:none !important; }
+html, body, [data-testid="stAppViewContainer"] { background:#f5f3ff !important; }
+[data-testid="block-container"] { padding:0 !important; max-width:100% !important; }
+[data-testid="stVerticalBlock"] { gap:0 !important; }
+[data-testid="stHorizontalBlock"] {
+    padding: 0 5vw 5rem !important;
+    max-width: 1260px !important;
+    margin: 0 auto !important;
+    background: #f5f3ff;
+}
+[data-testid="column"] { padding: 0 0.6rem !important; }
+/* Real st.button — transparent overlay covering the full card */
+.stButton > button {
+    width:100% !important;
+    background:transparent !important;
+    color:transparent !important;
+    border:none !important;
+    border-radius:20px !important;
+    padding:0 !important;
+    cursor:pointer !important;
+    position:relative !important;
+    margin-top:-520px !important;
+    height:520px !important;
+    box-shadow:none !important;
+    z-index:10 !important;
+}
+.stButton > button:hover { background:transparent !important; box-shadow:none !important; transform:none !important; }
+.stButton > button:focus { outline:none !important; box-shadow:none !important; }
+/* Eliminate all gaps */
+[data-testid="stColumn"] > div {gap:0 !important;}
+[data-testid="stColumn"] > div > div {gap:0 !important;}
+[data-testid="stColumn"] > div > div > div {gap:0 !important;}
+[data-testid="stColumn"] iframe {display:block !important; margin:0 !important; padding:0 !important;}
+[data-testid="stColumn"] .stButton {margin:0 !important; padding:0 !important;}
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------- HERO --------------------
-st.markdown("""
-<div class="hero-wrap">
-    <div class="hero-badge">🇱🇰 &nbsp; Interactive Decision Support Platform</div>
-    <h1 class="hero-title">Sri Lanka<br><span>District Insights</span></h1>
-    <p class="hero-subtitle">
-        Evidence-based analytics across poverty, child protection, and mental health services — empowering smarter resource allocation.
-    </p>
-    <div class="hero-divider"></div>
+# ── HERO + NAV + STATS ───────────────────────────────────────────────────────
+components.html("""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--ink:#0f0a1e;--muted:#6b5f8a;--viv:#6d28d9;--mid:#8b5cf6;--lite:#a78bfa;--pale:#ede9fe;--wash:#f5f3ff;--bd:rgba(109,40,217,.13);--bdd:rgba(109,40,217,.26);}
+body{font-family:'Outfit',sans-serif;background:#fff;color:var(--ink);}
+nav{position:sticky;top:0;z-index:99;background:rgba(255,255,255,.93);backdrop-filter:blur(18px);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 5vw;height:66px;}
+.logo{display:flex;align-items:center;gap:.65rem;}
+.emblem{width:34px;height:34px;background:var(--viv);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;}
+.wordmark{font-family:'Cormorant Garamond',serif;font-size:1.22rem;font-weight:700;color:var(--ink);}
+.wordmark span{color:var(--viv);}
+.links{display:flex;gap:2.2rem;align-items:center;}
+.lnk{font-size:.84rem;font-weight:500;color:var(--muted);text-decoration:none;transition:color .2s;}
+.lnk:hover{color:var(--viv);}
+.cta{background:var(--viv);color:#fff !important;padding:.48rem 1.15rem;border-radius:8px;font-weight:600;font-size:.81rem;letter-spacing:.04em;transition:background .2s,transform .2s;}
+.cta:hover{background:var(--ink) !important;transform:translateY(-1px);}
+.hero{background:radial-gradient(ellipse 65% 55% at 65% -5%,rgba(109,40,217,.09) 0%,transparent 70%),radial-gradient(ellipse 45% 35% at 5% 85%,rgba(167,139,250,.07) 0%,transparent 60%),#fff;padding:6.5rem 5vw 5rem;display:flex;align-items:center;gap:4.5rem;max-width:1260px;margin:0 auto;}
+.hl{flex:1;}
+.hr{flex:0 0 400px;}
+.eye{display:inline-flex;align-items:center;gap:.5rem;background:var(--pale);color:var(--viv);font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;padding:.38rem 1rem;border-radius:100px;border:1px solid var(--bdd);margin-bottom:1.7rem;animation:up .6s ease both;}
+.edot{width:6px;height:6px;border-radius:50%;background:var(--viv);animation:pu 2s infinite;}
+h1{font-family:'Cormorant Garamond',serif;font-size:clamp(3rem,5vw,4.8rem);font-weight:700;line-height:1.06;color:var(--ink);letter-spacing:-.02em;margin:0 0 1.4rem;animation:up .7s ease .1s both;}
+h1 em{font-style:italic;color:var(--viv);}
+.hp{font-size:1rem;font-weight:300;color:var(--muted);line-height:1.78;max-width:470px;margin:0 0 2.3rem;animation:up .7s ease .2s both;}
+.btns{display:flex;gap:.9rem;align-items:center;animation:up .7s ease .3s both;}
+.bp{background:var(--viv);color:#fff;border:none;padding:.82rem 1.9rem;border-radius:10px;font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:600;letter-spacing:.03em;cursor:pointer;transition:all .25s;box-shadow:0 4px 20px rgba(109,40,217,.3);}
+.bp:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(109,40,217,.42);background:var(--ink);}
+.bg{background:transparent;color:var(--muted);border:1px solid var(--bdd);padding:.82rem 1.6rem;border-radius:10px;font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:500;cursor:pointer;transition:all .25s;}
+.bg:hover{border-color:var(--mid);color:var(--viv);}
+.panel{background:var(--wash);border:1px solid var(--bdd);border-radius:22px;padding:1.8rem;animation:lft .8s ease .35s both;}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.4rem;}
+.pt{font-size:.74rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);}
+.plv{display:flex;align-items:center;gap:.38rem;font-size:.7rem;font-weight:600;color:#059669;}
+.ldot{width:6px;height:6px;border-radius:50%;background:#10b981;animation:pu 1.5s infinite;}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:1.1rem;}
+.sb{background:#fff;border:1px solid var(--bd);border-radius:13px;padding:.9rem 1.1rem;}
+.sn{font-family:'Cormorant Garamond',serif;font-size:2.1rem;font-weight:700;color:var(--viv);line-height:1;}
+.sl{font-size:.68rem;color:var(--muted);font-weight:500;margin-top:.22rem;text-transform:uppercase;letter-spacing:.08em;}
+.br{display:flex;align-items:center;gap:.75rem;margin-bottom:.65rem;}
+.bl{font-size:.7rem;color:var(--muted);width:76px;flex-shrink:0;}
+.bt{flex:1;height:6px;background:var(--bd);border-radius:3px;overflow:hidden;}
+.bf{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--viv),var(--lite));}
+.bv{font-size:.7rem;font-weight:600;color:#2e2250;width:28px;text-align:right;}
+.strip{background:#fff;padding:2.4rem 5vw;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);}
+.si{max-width:1260px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);background:var(--wash);border:1px solid var(--bdd);border-radius:14px;overflow:hidden;}
+.sc{background:var(--wash);padding:1.9rem;text-align:center;}
+.scn{font-family:'Cormorant Garamond',serif;font-size:2.7rem;font-weight:700;color:var(--viv);line-height:1;}
+.scl{font-size:.74rem;color:var(--muted);font-weight:400;margin-top:.38rem;letter-spacing:.09em;text-transform:uppercase;}
+@keyframes up{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:translateY(0);}}
+@keyframes lft{from{opacity:0;transform:translateX(26px);}to{opacity:1;transform:translateX(0);}}
+@keyframes pu{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(1.4);}}
+</style></head><body>
+<nav>
+  <div class="logo"><div class="emblem">🇱🇰</div><div class="wordmark">District <span>Insights</span></div></div>
+  <div class="links">
+    <a class="lnk" href="#">Platform</a>
+    <a class="lnk" href="#">About</a>
+    <a class="lnk" href="#">Modules</a>
+    <a class="lnk cta" href="#">Get Access</a>
+  </div>
+</nav>
+<div class="hero">
+  <div class="hl">
+    <div class="eye"><div class="edot"></div>Interactive Decision Support Platform</div>
+    <h1>Sri Lanka<br><em>District</em><br>Insights</h1>
+    <p class="hp">Evidence-based analytics across poverty, child protection, and skill development — empowering smarter resource allocation for 25 districts nationwide.</p>
+    <div class="btns"><button class="bp">Explore the Platform →</button><button class="bg">View Methodology</button></div>
+  </div>
+  <div class="hr">
+    <div class="panel">
+      <div class="ph"><div class="pt">Live Dashboard Preview</div><div class="plv"><div class="ldot"></div>Real-time</div></div>
+      <div class="sg">
+        <div class="sb"><div class="sn">25</div><div class="sl">Districts</div></div>
+        <div class="sb"><div class="sn">3</div><div class="sl">Modules</div></div>
+        <div class="sb"><div class="sn">98%</div><div class="sl">Coverage</div></div>
+        <div class="sb"><div class="sn">2024</div><div class="sl">Data Year</div></div>
+      </div>
+      <div class="br"><div class="bl">Poverty Index</div><div class="bt"><div class="bf" style="width:78%"></div></div><div class="bv">78%</div></div>
+      <div class="br"><div class="bl">Child Welfare</div><div class="bt"><div class="bf" style="width:64%"></div></div><div class="bv">64%</div></div>
+      <div class="br"><div class="bl">Skill Dev.</div><div class="bt"><div class="bf" style="width:52%"></div></div><div class="bv">52%</div></div>
+    </div>
+  </div>
 </div>
+<div class="strip">
+  <div class="si">
+    <div class="sc"><div class="scn">25</div><div class="scl">Districts Covered</div></div>
+    <div class="sc"><div class="scn">3</div><div class="scl">Analytics Modules</div></div>
+    <div class="sc"><div class="scn">100%</div><div class="scl">Data Coverage</div></div>
+    <div class="sc"><div class="scn">Live</div><div class="scl">Integration Status</div></div>
+  </div>
+</div>
+</body></html>""", height=920, scrolling=False)
 
-<div class="stats-row">
-    <div class="stat-item">
-        <div class="stat-number">25</div>
-        <div class="stat-label">Districts Covered</div>
+# ── ABOUT ────────────────────────────────────────────────────────────────────
+components.html("""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--ink:#0f0a1e;--muted:#6b5f8a;--viv:#6d28d9;--mid:#8b5cf6;--pale:#ede9fe;--wash:#f5f3ff;--bd:rgba(109,40,217,.13);--bdd:rgba(109,40,217,.26);}
+body{font-family:'Outfit',sans-serif;background:#fff;color:var(--ink);}
+.about{padding:6rem 5vw;max-width:1260px;margin:0 auto;}
+.sl{display:inline-flex;align-items:center;gap:.5rem;font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--viv);margin-bottom:.9rem;}
+.sl::before{content:'';display:block;width:22px;height:2px;background:var(--viv);}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:5.5rem;align-items:start;}
+h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.9rem,3.2vw,3rem);font-weight:700;line-height:1.1;color:var(--ink);letter-spacing:-.02em;margin:0 0 1.3rem;}
+h2 strong{color:var(--viv);}
+p{font-size:.94rem;font-weight:300;color:var(--muted);line-height:1.8;margin-bottom:1.1rem;}
+.pillars{display:flex;flex-direction:column;gap:.95rem;}
+.pillar{display:flex;gap:1.1rem;align-items:flex-start;padding:1.1rem 1.2rem;background:var(--wash);border:1px solid var(--bd);border-radius:14px;transition:border-color .25s;}
+.pillar:hover{border-color:var(--mid);}
+.pico{width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid var(--bdd);display:flex;align-items:center;justify-content:center;font-size:1.05rem;flex-shrink:0;}
+.ptitle{font-weight:600;font-size:.86rem;color:var(--ink);margin-bottom:.18rem;}
+.pdesc{font-size:.78rem;color:var(--muted);line-height:1.55;}
+</style></head><body>
+<div class="about">
+  <div class="sl">About the Platform</div>
+  <div class="grid">
+    <div>
+      <h2>Built for those who<br><strong>shape policy</strong><br>across Sri Lanka</h2>
+      <p>Sri Lanka District Insights is a decision-support platform designed for government officials, policymakers, and development planners. It translates complex district-level data into clear, actionable intelligence.</p>
+      <p>By consolidating socio-economic indicators across three critical domains, the platform enables faster, more equitable resource allocation — ensuring interventions reach the communities that need them most.</p>
     </div>
-    <div class="stat-sep"></div>
-    <div class="stat-item">
-        <div class="stat-number">3</div>
-        <div class="stat-label">Analytics Modules</div>
+    <div class="pillars">
+      <div class="pillar"><div class="pico">📊</div><div><div class="ptitle">Evidence-First Analytics</div><div class="pdesc">Every insight is grounded in verified district-level data. Transparent methodology, fully traceable sources.</div></div></div>
+      <div class="pillar"><div class="pico">🎯</div><div><div class="ptitle">Equity-Centered Design</div><div class="pdesc">Built to surface disparities and prioritize underserved regions — ensuring no district is overlooked.</div></div></div>
+      <div class="pillar"><div class="pico">⚡</div><div><div class="ptitle">Real-Time Integration</div><div class="pdesc">Dashboards reflect the latest data, enabling decision-makers to respond to emerging needs swiftly.</div></div></div>
     </div>
-    <div class="stat-sep"></div>
-    <div class="stat-item">
-        <div class="stat-number">Live</div>
-        <div class="stat-label">Data Status</div>
-    </div>
+  </div>
 </div>
+</body></html>""", height=560, scrolling=False)
+
+# ── MODULE CARDS ─────────────────────────────────────────────────────────────
+# ── CARDS SECTION HEADER ─────────────────────────────────────────────────────
+components.html("""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--ink:#0f0a1e;--muted:#6b5f8a;--viv:#6d28d9;--mid:#8b5cf6;--lite:#a78bfa;--pale:#ede9fe;--wash:#f5f3ff;--bd:rgba(109,40,217,.13);--bdd:rgba(109,40,217,.26);}
+body{font-family:'Outfit',sans-serif;background:var(--wash);color:var(--ink);}
+.sec{padding:5.5rem 5vw 0;border-top:1px solid var(--bd);}
+.inner{max-width:1260px;margin:0 auto;}
+.hd{text-align:center;margin-bottom:3.5rem;}
+.sl{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--viv);margin-bottom:.9rem;}
+.sl::before,.sl::after{content:'';display:block;width:22px;height:2px;background:var(--viv);}
+h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.9rem,3.2vw,2.9rem);font-weight:700;line-height:1.1;color:var(--ink);letter-spacing:-.02em;margin:.5rem 0 .9rem;}
+.sub{font-size:.94rem;color:var(--muted);font-weight:300;max-width:500px;margin:0 auto;line-height:1.7;}
+</style></head><body>
+<div class="sec"><div class="inner"><div class="hd">
+  <div class="sl">Analytics Modules</div>
+  <h2>Three domains.<br>One unified platform.</h2>
+  <p class="sub">Each module delivers deep, district-level intelligence across a critical domain of social and economic development.</p>
+</div></div></div>
+</body></html>""", height=320, scrolling=False)
+
+# ── CARDS GRID ────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+/* card grid wrapper */
+[data-testid="stHorizontalBlock"].cards-row {gap:1.6rem !important;}
+div[data-card] {
+    background:#fff;border:1px solid rgba(109,40,217,.26);border-radius:20px;
+    overflow:hidden;display:flex;flex-direction:column;
+    transition:transform .3s cubic-bezier(.34,1.4,.64,1),box-shadow .3s,border-color .3s;
+    padding:0;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# -------------------- MODULE CARDS --------------------
-col1, col2, col3 = st.columns(3, gap="medium")
+CARD_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&family=Outfit:wght@300;400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--ink:#0f0a1e;--muted:#6b5f8a;--viv:#6d28d9;--mid:#8b5cf6;--pale:#ede9fe;--wash:#f5f3ff;--bd:rgba(109,40,217,.13);--bdd:rgba(109,40,217,.26);}
+html,body{height:100%;margin:0;}
+body{font-family:'Outfit',sans-serif;background:var(--wash);color:var(--ink);}
+.card{background:#fff;border:1px solid var(--bdd);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;height:100%;transition:transform .3s cubic-bezier(.34,1.4,.64,1),box-shadow .3s,border-color .3s;}
+.card:hover{transform:translateY(-8px);box-shadow:0 28px 60px rgba(109,40,217,.18);border-color:var(--mid);}
+.ct{padding:1.9rem 1.9rem 1.4rem;border-bottom:1px solid var(--bd);position:relative;}
+.cn{position:absolute;top:1.3rem;right:1.6rem;font-family:'Cormorant Garamond',serif;font-size:3.8rem;font-weight:700;color:var(--pale);line-height:1;user-select:none;}
+.ci{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.35rem;margin-bottom:1.2rem;border:1px solid var(--bdd);}
+.i1{background:linear-gradient(135deg,#ede9fe,#ddd6fe);}
+.i2{background:linear-gradient(135deg,#f5f3ff,#ede9fe);}
+.i3{background:linear-gradient(135deg,#eef2ff,#e0e7ff);}
+.tag{display:inline-block;font-size:.64rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--viv);background:var(--pale);border:1px solid var(--bdd);padding:.2rem .7rem;border-radius:100px;margin-bottom:.8rem;}
+.ctitle{font-family:'Cormorant Garamond',serif;font-size:1.65rem;font-weight:700;color:var(--ink);letter-spacing:-.01em;}
+.cb{padding:1.4rem 1.9rem 0;display:flex;flex-direction:column;flex:1;}
+.desc{font-size:.85rem;color:var(--muted);line-height:1.7;margin-bottom:1.3rem;font-weight:300;}
+.mts{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.3rem;}
+.mt{display:flex;align-items:center;gap:.55rem;font-size:.78rem;color:var(--muted);}
+.md{width:5px;height:5px;border-radius:50%;background:var(--mid);flex-shrink:0;}
+.cf{display:flex;align-items:center;padding-top:1rem;border-top:1px solid var(--bd);margin-bottom:1.3rem;}
+.act{display:flex;align-items:center;gap:.38rem;font-size:.7rem;font-weight:600;color:#059669;}
+.ad{width:6px;height:6px;border-radius:50%;background:#10b981;animation:pu 1.8s infinite;}
+/* Visual button inside card — just decoration, real st.button sits on top */
+.btn-visual{display:block;width:100%;padding:.85rem 1rem;background:var(--viv);color:#fff;border:none;border-radius:12px;font-family:'Outfit',sans-serif;font-size:.875rem;font-weight:600;letter-spacing:.03em;text-align:center;box-shadow:0 4px 18px rgba(109,40,217,.28);margin-top:auto;margin-bottom:1.6rem;pointer-events:none;}
+.arr{display:inline-block;}
+@keyframes pu{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(1.5);}}
+</style>
+"""
+
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("""
-    <div class="module-card">
-        <div class="card-number">01</div>
-        <div class="card-icon-wrap icon-poverty">💰</div>
-        <div class="card-tag">Economic Analysis</div>
-        <h3 class="card-title">Poverty Analysis</h3>
-        <p class="card-desc">
-            Identify high-poverty districts and allocate development projects where social impact is greatest.
-        </p>
-        <div class="card-metric">District-level poverty mapping</div>
-        <div class="card-metric">Resource allocation scoring</div>
-        <div class="card-metric">Trend forecasting</div>
-        <div class="card-footer">
-            <span class="card-status">● Active</span>
-            <span class="card-arrow">→</span>
+    components.html(CARD_CSS + """<div class="card">
+        <div class="ct"><div class="cn">01</div><div class="ci i1">💰</div><div class="tag">Economic Analysis</div><div class="ctitle">Poverty Analysis</div></div>
+        <div class="cb">
+          <p class="desc">Identify high-poverty districts and allocate development projects where social impact is greatest.</p>
+          <div class="mts"><div class="mt"><div class="md"></div>District-level poverty mapping</div><div class="mt"><div class="md"></div>Resource allocation scoring</div><div class="mt"><div class="md"></div>Trend forecasting models</div></div>
+          <div class="cf"><div class="act"><div class="ad"></div>Active</div></div>
+          <div class="btn-visual">Explore Poverty Data <span class="arr">→</span></div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Explore Poverty Data →", key="poverty_btn", use_container_width=True):
+    </div>""", height=520, scrolling=False)
+    if st.button("Explore Poverty Data →", key="btn_poverty", use_container_width=True):
         st.switch_page("pages/poverty.py")
 
 with col2:
-    st.markdown("""
-    <div class="module-card">
-        <div class="card-number">02</div>
-        <div class="card-icon-wrap icon-child">🛡️</div>
-        <div class="card-tag">Social Protection</div>
-        <h3 class="card-title">Child Protection</h3>
-        <p class="card-desc">
-            Analyze vulnerable child populations and optimize child protection service deployment across regions.
-        </p>
-        <div class="card-metric">Vulnerability heat-mapping</div>
-        <div class="card-metric">Service gap identification</div>
-        <div class="card-metric">Intervention prioritization</div>
-        <div class="card-footer">
-            <span class="card-status">● Active</span>
-            <span class="card-arrow">→</span>
+    components.html(CARD_CSS + """<div class="card">
+        <div class="ct"><div class="cn">02</div><div class="ci i2">🛡️</div><div class="tag">Social Protection</div><div class="ctitle">Child Protection</div></div>
+        <div class="cb">
+          <p class="desc">Analyze vulnerable child populations and optimize child protection service deployment across regions.</p>
+          <div class="mts"><div class="mt"><div class="md"></div>Vulnerability heat-mapping</div><div class="mt"><div class="md"></div>Service gap identification</div><div class="mt"><div class="md"></div>Intervention prioritization</div></div>
+          <div class="cf"><div class="act"><div class="ad"></div>Active</div></div>
+          <div class="btn-visual">View Child Protection Insights <span class="arr">→</span></div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("View Child Protection Insights →", key="child_btn", use_container_width=True):
+    </div>""", height=520, scrolling=False)
+    if st.button("View Child Protection Insights →", key="btn_child", use_container_width=True):
         st.switch_page("pages/childcase.py")
 
 with col3:
-    st.markdown("""
-    <div class="module-card">
-        <div class="card-number">03</div>
-        <div class="card-icon-wrap icon-mental">🧠</div>
-        <div class="card-tag">Health Services</div>
-        <h3 class="card-title">Mental Health</h3>
-        <p class="card-desc">
-            Understand district-level mental health needs, resource gaps, and service coverage disparities.
-        </p>
-        <div class="card-metric">Needs assessment dashboard</div>
-        <div class="card-metric">Facility coverage analysis</div>
-        <div class="card-metric">Workforce gap metrics</div>
-        <div class="card-footer">
-            <span class="card-status">● Active</span>
-            <span class="card-arrow">→</span>
+    components.html(CARD_CSS + """<div class="card">
+        <div class="ct"><div class="cn">03</div><div class="ci i3">🎓</div><div class="tag">Development Services</div><div class="ctitle">Skill Development</div></div>
+        <div class="cb">
+          <p class="desc">Understand district-level skill development program allocation and workforce readiness gaps.</p>
+          <div class="mts"><div class="mt"><div class="md"></div>Needs assessment dashboard</div><div class="mt"><div class="md"></div>Facility coverage analysis</div><div class="mt"><div class="md"></div>Workforce gap metrics</div></div>
+          <div class="cf"><div class="act"><div class="ad"></div>Active</div></div>
+          <div class="btn-visual">Skill Allocation Dashboard <span class="arr">→</span></div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("Mental Health Dashboard →", key="mental_btn", use_container_width=True):
-        st.switch_page("pages/mentalhealth.py")
+    </div>""", height=520, scrolling=False)
+    if st.button("Skill Allocation Dashboard →", key="btn_skills", use_container_width=True):
+        st.switch_page("pages/App.py")
 
-# -------------------- INFO BAR --------------------
-st.markdown("""
-<div class="info-bar">
-    <div class="info-item"><div class="info-dot"></div> Real-time data integration</div>
-    <div class="info-item"><div class="info-dot"></div> 25 districts nationwide</div>
-    <div class="info-item"><div class="info-dot"></div> Decision-support optimized</div>
-    <div class="info-item"><div class="info-dot"></div> Built for policymakers</div>
-</div>
-""", unsafe_allow_html=True)
+# ── FOOTER ───────────────────────────────────────────────────────────────────
+components.html("""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&family=Outfit:wght@400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Outfit',sans-serif;background:#f5f3ff;}
+footer{padding:2.6rem 5vw;border-top:1px solid rgba(109,40,217,.13);}
+.inner{max-width:1260px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:700;color:#0f0a1e;}
+.logo span{color:#6d28d9;}
+.meta{font-size:.76rem;color:#6b5f8a;}
+</style></head><body>
+<footer><div class="inner">
+  <div class="logo">District <span>Insights</span></div>
+  <div class="meta">© 2024 Sri Lanka District Insights · Built for policymakers</div>
+  <div style="font-size:1.4rem">🇱🇰</div>
+</div></footer>
+</body></html>""", height=88, scrolling=False)
