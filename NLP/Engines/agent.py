@@ -1,37 +1,3 @@
-"""
-LFS Agentic AI — autonomous question-answering over LFS-2023 data.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ARCHITECTURE (simplified — single LLM):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-USER QUERY
-   │
-   ├─> [CONVERSATIONAL GUARD]
-   │   └─ Greetings / help / meta → direct response (no LLM needed)
-   │
-   ├─> [KEYWORD ROUTER]  ← replaces Ollama gate entirely
-   │   └─ Classifies intent from query keywords
-   │      Maps to one of 8 tools deterministically
-   │
-   ├─> [TOOL EXECUTION]
-   │   └─ Python computes exact statistics / beneficiary lists
-   │
-   └─> [GROQ LLM]  (llama-3.3-70b, cloud)
-       └─ Formats final response in natural language
-          Only called ONCE per query for output formatting
-
-TOOLS (8 registered):
-1. allocate_resources      → Resource allocation (vulnerability-scored)
-2. compare_clusters        → Side-by-side cluster comparison
-3. query_cluster           → Specific cluster deep-dive
-4. get_insights            → Trends / narrative analysis
-5. analyze_demographics    → Statistical breakdowns
-6. find_outliers           → Anomaly detection
-7. get_cluster_stats       → Cluster-level statistics
-8. get_data_schema         → Dataset schema & encodings
-"""
-
 import os
 import sys
 import json
@@ -97,7 +63,7 @@ class LFSAgent:
         init_tools(self.llm_engine, self.nlpc_engine)
         self.tools = build_function_tools()
 
-        print(f"\n✅ {len(self.tools)} tools registered:")
+        print(f"\n {len(self.tools)} tools registered:")
         print(list_tools())
 
         # Build ReActAgent (Groq fallback for complex queries)
@@ -113,11 +79,11 @@ class LFSAgent:
                     verbose=verbose,
                     max_iterations=3,
                 )
-                print("✅ ReActAgent ready (Groq fallback for edge cases)")
+                print(" ReActAgent ready (Groq fallback for edge cases)")
             except Exception as exc:
-                print(f"⚠️  ReActAgent setup failed: {exc}")
+                print(f"  ReActAgent setup failed: {exc}")
         else:
-            print("⚠️  Groq API key not set — set GROQ_API_KEY in .env")
+            print("  Groq API key not set — set GROQ_API_KEY in .env")
 
         self._mode = "keyword_router+groq"
         print(f"\n[MODE] Keyword Router → Tool → Groq LLM")
@@ -165,7 +131,7 @@ class LFSAgent:
 
                 if len(answer.strip()) < 20:
                     answer += (
-                        "\n\n⚠️ *Answer may be incomplete. "
+                        "\n\n *Answer may be incomplete. "
                         "Try rephrasing your question.*"
                     )
 
@@ -200,14 +166,14 @@ class LFSAgent:
 
         if q in ['hi', 'hello', 'hey', 'greetings', 'namaste']:
             return random.choice([
-                "👋 Hello! I'm an AI assistant for the Sri Lanka Labour Force Survey 2023. "
+                " Hello! I'm an AI assistant for the Sri Lanka Labour Force Survey 2023. "
                 "Ask me about workforce data, vulnerable populations, resource allocation, or insights.",
-                "Hi there! 👋 I can help you explore LFS-2023 data — employment, wages, "
+                "Hi there! I can help you explore LFS-2023 data — employment, wages, "
                 "disabilities, skills gaps, and more. What would you like to know?",
             ])
 
         if q in ['how are you', 'how are you?', "how's it going", "what's up"]:
-            return "Doing great, thanks! 😊 Ready to help you analyze the Labour Force Survey data."
+            return "Doing great, thanks! Ready to help you analyze the Labour Force Survey data."
 
         if any(q.startswith(h) for h in [
             'help', 'what can you do', 'what tools', 'commands', 'show tools', 'list tools'
@@ -238,7 +204,7 @@ class LFSAgent:
             )
 
         if q in ['thanks', 'thank you', 'thanks!', 'thankyou']:
-            return "You're welcome! 😊 Feel free to ask more questions anytime."
+            return "You're welcome! Feel free to ask more questions anytime."
 
         return None  # route to tools
 

@@ -1,15 +1,4 @@
 
-"""
-NLP.py — Entry point for the LFS-2023 Agentic AI system.
-
-Run:
-    python NLP.py
-
-Requirements:
-    • GROQ_API_KEY set in .env
-    • skilldev_model.pkl in ../model/ or ./model/
-"""
-
 import os
 import sys
 import warnings
@@ -36,10 +25,10 @@ if __name__ == "__main__":
     valid_path = next((p for p in candidate_paths if os.path.exists(p)), None)
 
     if not valid_path:
-        print("❌ No pretrained model found. Run: python train_model.py")
+        print(" No pretrained model found. Run: python train_model.py")
         sys.exit(1)
 
-    print(f"✅ Model: {valid_path}")
+    print(f" Model: {valid_path}")
 
     agent = LFSAgent(model_path=valid_path, verbose=True)
 
@@ -51,21 +40,21 @@ if __name__ == "__main__":
 
     while True:
         try:
-            query = input("📝 Your query: ").strip()
+            query = input(" Your query: ").strip()
         except (KeyboardInterrupt, EOFError):
-            print("\n✅ Goodbye!")
+            print("\n Goodbye!")
             break
 
         if not query:
             continue
 
         if query.lower() in ('quit', 'exit', 'bye'):
-            print("✅ Goodbye!")
+            print(" Goodbye!")
             break
 
         if query.lower() == 'reset':
             agent.reset()
-            print("🔄 Memory cleared.")
+            print(" Memory cleared.")
             continue
 
         print()

@@ -288,7 +288,7 @@ with col3:
         </div>
     </div>""", height=520, scrolling=False)
     if st.button("Skill Allocation Dashboard →", key="btn_skills", use_container_width=True):
-        st.switch_page("pages/App.py")
+        st.switch_page("pages/skill_dev.py")
 
 # ── FOOTER ───────────────────────────────────────────────────────────────────
 components.html("""<!DOCTYPE html><html><head><meta charset="UTF-8">

@@ -1,21 +1,3 @@
-"""
-service.py — FastAPI REST service for the LFS-2023 Agentic AI system.
-
-Endpoints:
-    POST /chat              — General conversational query
-    POST /allocate          — Resource allocation (structured input)
-    GET  /clusters          — Cluster statistics overview
-    GET  /insights          — Key dataset insights (optional ?topic=income)
-    POST /analyze           — Demographic / statistical analysis
-    POST /compare-clusters  — Side-by-side cluster comparison
-    GET  /schema            — Dataset schema and column descriptions
-    GET  /health            — Health check
-
-Run:
-    uvicorn service:app --reload --port 8000
-
-Then open: http://localhost:8000/docs  (auto-generated Swagger UI)
-"""
 import os
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
@@ -123,11 +105,7 @@ class ChatResponse(BaseModel):
 class AllocateRequest(BaseModel):
     num_items: int = Field(..., ge=1, le=10000,example=50, description="Number of items to distribute")
     item_type: str = Field(..., min_length=1, max_length=50,example="laptops", description="Type of resource")
-    context: Optional[str] = Field(
-        None, max_length=200,
-        example="prioritise estate sector women",
-        description="Optional targeting criteria appended to the query",
-    )
+    context: Optional[str] = Field(None, max_length=200,example="prioritise estate sector women",description="Optional targeting criteria appended to the query",)
 
 
 class AllocateResponse(BaseModel):
@@ -137,8 +115,7 @@ class AllocateResponse(BaseModel):
 
 
 class AnalyzeRequest(BaseModel):
-    question: str = Field(..., min_length=5, max_length=400,
-                          example="What is the average income by district?")
+    question: str = Field(..., min_length=5, max_length=400, example="What is the average income by district?")
 
 
 class AnalyzeResponse(BaseModel):
@@ -163,12 +140,6 @@ def health_check():
 
 @app.post("/chat", response_model=ChatResponse, tags=["General"])
 def chat(body: ChatRequest):
-    """
-    General-purpose conversational query.
-
-    Accepts any natural language question about the LFS-2023 dataset.
-    The keyword router automatically selects the best tool.
-    """
     agent = get_agent()
     t0 = time.time()
 
@@ -191,16 +162,6 @@ def chat(body: ChatRequest):
 
 @app.post("/allocate", response_model=AllocateResponse, tags=["Allocation"])
 def allocate(body: AllocateRequest):
-    """
-    Structured resource allocation endpoint.
-
-    Scores all ~18,937 LFS respondents by vulnerability and returns the
-    top N beneficiaries with demographics, need scores, and a summary.
-
-    Need score weights:
-    - Income 40% | Education 15% | Disability 15%
-    - Informality 10% | Sector 10% | Item-specific 10%
-    """
     agent = get_agent()
     t0 = time.time()
 
@@ -226,10 +187,6 @@ def allocate(body: AllocateRequest):
 
 @app.get("/clusters", tags=["Clusters"])
 def get_clusters():
-    """
-    Returns a summary of all K-Means clusters:
-    total record count, number of clusters, and population distribution.
-    """
     agent = get_agent()
     t0 = time.time()
     try:
@@ -244,17 +201,8 @@ def get_clusters():
 
 @app.get("/insights", tags=["Analysis"])
 def get_insights(
-    topic: Optional[str] = Query(
-        None,
-        description="Focus topic: income | education | disability | gender | employment | digital",
-        example="income",
-    )
-):
-    """
-    Returns key insights from the LFS-2023 dataset.
+    topic: Optional[str] = Query(None,description="Focus topic: income | education | disability | gender | employment | digital",example="income",)):
 
-    Leave `topic` empty for a broad 5-insight overview.
-    """
     agent = get_agent()
     t0 = time.time()
     try:
@@ -270,14 +218,6 @@ def get_insights(
 
 @app.post("/analyze", response_model=AnalyzeResponse, tags=["Analysis"])
 def analyze(body: AnalyzeRequest):
-    """
-    Demographic and statistical analysis.
-
-    Example questions:
-    - "How many people have hearing disabilities?"
-    - "What is the male/female split by sector?"
-    - "Average income in Jaffna vs Colombo"
-    """
     agent = get_agent()
     t0 = time.time()
     try:
@@ -293,12 +233,6 @@ def analyze(body: AnalyzeRequest):
 
 @app.post("/compare-clusters", tags=["Clusters"])
 def compare_clusters():
-    """
-    Side-by-side comparison of all clusters.
-
-    Returns population size, avg age, avg income, dominant employment type,
-    sector distribution, and key distinguishing characteristics per cluster.
-    """
     agent = get_agent()
     t0 = time.time()
     try:
@@ -313,10 +247,6 @@ def compare_clusters():
 
 @app.get("/schema", tags=["System"])
 def get_schema():
-    """
-    Returns the full dataset schema — all column names, descriptions,
-    and encoded value mappings (e.g. SECTOR: 1=Urban, 2=Rural, 3=Estate).
-    """
     try:
         from constants import (
             COLUMN_DESCRIPTIONS, SECTOR_MAP, DISTRICT_MAP,

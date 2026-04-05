@@ -1,20 +1,41 @@
 from __future__ import annotations
-import os
-import sys
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_PROJECT_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
+import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import streamlit as st
+import requests
 
-from service.child_protection_service import ChildProtectionService
+# ---------------------------------------------------------------------------
+# API helpers
+# ---------------------------------------------------------------------------
+API_BASE = "http://localhost:8000"
 
-PROJECT_ROOT = _PROJECT_ROOT
+
+def api_get(endpoint: str) -> dict:
+    try:
+        r = requests.get(f"{API_BASE}{endpoint}", timeout=60)
+        r.raise_for_status()
+        return r.json()
+    except requests.exceptions.ConnectionError:
+        st.error("Cannot connect to API. Is the FastAPI server running on port 8000?")
+        st.stop()
+    except Exception as e:
+        st.error(f"API error: {e}")
+        st.stop()
+
+
+def api_post(endpoint: str, payload: dict) -> dict:
+    try:
+        r = requests.post(f"{API_BASE}{endpoint}", json=payload, timeout=180)
+        r.raise_for_status()
+        return r.json()
+    except requests.exceptions.ConnectionError:
+        st.error("Cannot connect to API. Is the FastAPI server running on port 8000?")
+        st.stop()
+    except Exception as e:
+        st.error(f"API error: {e}")
+        st.stop()
+
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -243,15 +264,7 @@ def risk_bar(score: float, tier: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Service
-# ---------------------------------------------------------------------------
-@st.cache_resource(show_spinner="Loading pipeline…")
-def get_service() -> ChildProtectionService:
-    return ChildProtectionService(PROJECT_ROOT)
-
-
-# ---------------------------------------------------------------------------
-# Page header
+# Page header + nav
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -368,11 +381,10 @@ with col_panel:
 
     st.markdown('<hr class="panel-divider">', unsafe_allow_html=True)
 
-    # District filter
+    # District filter — populated from GET /child-risk-summary
     st.markdown('<div class="panel-title">🗺 District Filter</div>', unsafe_allow_html=True)
     try:
-        svc     = get_service()
-        summary = svc.get_risk_summary()
+        summary = api_get("/child-risk-summary")
         all_districts = sorted(
             summary.get("critical_districts", []) +
             summary.get("high_districts",     []) +
@@ -381,9 +393,9 @@ with col_panel:
         )
         selected = st.multiselect(
             "Restrict to districts",
-            options = all_districts,
-            default = [],
-            help    = "Leave blank to allocate across all 25 districts",
+            options          = all_districts,
+            default          = [],
+            help             = "Leave blank to allocate across all 25 districts",
             label_visibility = "collapsed",
         )
     except Exception:
@@ -393,11 +405,10 @@ with col_panel:
     run_btn = st.button("▶  Run Allocation", type="primary")
     st.markdown('<hr class="panel-divider">', unsafe_allow_html=True)
 
-    # Risk summary boxes
+    # Risk summary boxes — GET /child-risk-summary
     st.markdown('<div class="panel-title">Risk Summary</div>', unsafe_allow_html=True)
     try:
-        svc     = get_service()
-        summary = svc.get_risk_summary()
+        summary = api_get("/child-risk-summary")
         for tier, key in [
             ("CRITICAL", "critical_districts"),
             ("HIGH",     "high_districts"),
@@ -428,26 +439,24 @@ with col_panel:
 # ════════════════════════════════════════
 with col_main:
 
-    # ── Run allocation ────────────────────────────────────────────────────────
+    # ── Run allocation — POST /child-budget ───────────────────────────────────
     if run_btn:
         with st.spinner("Running allocation…"):
             try:
-                svc    = get_service()
-                result = svc.allocate_budget(
-                    total_budget       = float(budget_input),
-                    query              = None,
-                    selected_districts = selected or None,
-                )
+                result = api_post("/child-budget", {
+                    "total_budget":       float(budget_input),
+                    "query":              None,
+                    "selected_districts": selected or None,
+                })
                 st.session_state["cp_alloc_result"] = result
             except Exception as e:
                 st.error(f"Allocation failed: {e}")
                 st.stop()
 
-    # ── Landing state — overview chart ────────────────────────────────────────
+    # ── Landing state — overview chart — GET /child-risk-summary ─────────────
     if "cp_alloc_result" not in st.session_state:
         try:
-            svc     = get_service()
-            summary = svc.get_risk_summary()
+            summary = api_get("/child-risk-summary")
             all_d   = []
             for tier, key in [
                 ("CRITICAL", "critical_districts"),
@@ -634,11 +643,11 @@ with col_main:
           <td><b>{row['district']}</b></td>
           <td>{badge(row['risk_tier'])}</td>
           <td style="min-width:100px">{risk_bar(float(score), row['risk_tier'])}</td>
-          <td style="color:#6b7280">{TIER_WEIGHT.get(row['risk_tier'], '—')}</td>
-          <td style="color:#6b7280">{row['budget_share_pct']:.2f}%</td>
+          <td style="color:#555555">{TIER_WEIGHT.get(row['risk_tier'], '—')}</td>
+          <td style="color:#555555">{row['budget_share_pct']:.2f}%</td>
           <td class="mono">{fmt_lkr(row['allocated_lkr'])}</td>
-          <td style="color:#6b7280">{avg_c}</td>
-          <td style="color:#6b7280">{per_c}</td>
+          <td style="color:#555555">{avg_c}</td>
+          <td style="color:#555555">{per_c}</td>
         </tr>"""
 
     st.markdown(f"""

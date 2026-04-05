@@ -4,7 +4,7 @@ from signals.nlp_signals import NLPQuerySignal
 from signals.insight_signals.poverty_insight_signals import InsightQuerySignal
 from signals.child_nlp_signals import ChildNLPSignals
 from signals.insight_signals.child_cases_insight_signals import ChildInsightQuerySignal
-from signals.mental_health_nlp_signals import MentalHealthNLPSignals
+
 from signals.allocation.poverty_resource_signals import BudgetAllocationRequest
 from signals.allocation.child_resource_signals import BudgetAllocationRequest as ChildBudgetAllocationRequest
 

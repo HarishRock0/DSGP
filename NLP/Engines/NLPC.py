@@ -98,7 +98,7 @@ class NLPClusterQueryEngine:
     """
 
     def __init__(self, model_path):
-        print("🔄 Loading trained clustering model...")
+        print(" Loading trained clustering model...")
         self.skilldev_model = load_model_safely(model_path)
 
         self.df = self.skilldev_model.df
@@ -116,14 +116,14 @@ class NLPClusterQueryEngine:
             if os.path.exists(normalized_path):
                 with open(normalized_path, 'rb') as sf:
                     self.scaler = pickle.load(sf)
-                print(f"✅ Scaler loaded from {normalized_path}")
+                print(f" Scaler loaded from {normalized_path}")
                 break
 
         if self.scaler is None:
             print("⚠️  scaler.pkl not found — outlier detection will be approximate")
 
-        print("✅ Model loaded successfully!")
-        print("✅ Intent detection: keyword routing (no Ollama required)")
+        print(" Model loaded successfully!")
+        print(" Intent detection: keyword routing (no Ollama required)")
 
     # ── Public interface ───────────────────────────────────────────────────────
 
@@ -247,12 +247,12 @@ class NLPClusterQueryEngine:
             if cluster_nums else 0
         )
         cluster_data = self.df[self.df['cluster_id'] == cluster_id]
-        print(f"📋 Cluster {cluster_id}: {len(cluster_data)} records")
+        print(f" Cluster {cluster_id}: {len(cluster_data)} records")
         print(cluster_data[self.features[:5]].head(10))
         return cluster_data
 
     def _compare_clusters(self):
-        print("\n📊 Cluster Comparison:")
+        print("\n Cluster Comparison:")
         for cluster_id in range(self.skilldev_model.n_clusters):
             cluster_data = self.df[self.df['cluster_id'] == cluster_id]
             print(f"\nCluster {cluster_id}:")
@@ -269,12 +269,12 @@ class NLPClusterQueryEngine:
 
     def _find_outliers(self):
         """Identify outlier records using the saved scaler from training."""
-        print("\n🔍 Outlier Detection:")
+        print("\n Outlier Detection:")
 
         if self.scaler is not None:
             X_scaled = self.scaler.transform(self.df[self.features])
         else:
-            print("⚠️  Using fallback scaler — results may differ from cluster assignments")
+            print("  Using fallback scaler — results may differ from cluster assignments")
             from sklearn.preprocessing import StandardScaler
             fallback_scaler = StandardScaler()
             X_scaled = fallback_scaler.fit_transform(self.df[self.features])
@@ -288,7 +288,7 @@ class NLPClusterQueryEngine:
 
     def _get_cluster_stats(self) -> dict:
         """Get comprehensive cluster statistics."""
-        print("\n📈 Cluster Statistics:")
+        print("\n Cluster Statistics:")
         stats = {
             'Total Records': len(self.df),
             'Clusters': self.skilldev_model.n_clusters,
@@ -301,14 +301,14 @@ class NLPClusterQueryEngine:
     def interactive_query(self):
         """Interactive query loop."""
         print("\n" + "=" * 60)
-        print("💬 NLP Cluster Query Engine — Interactive Mode")
+        print(" NLP Cluster Query Engine — Interactive Mode")
         print("=" * 60)
         print("Type 'quit' to exit\n")
 
         while True:
-            query = input("📝 Your query: ").strip()
+            query = input(" Your query: ").strip()
             if query.lower() == 'quit':
-                print("✅ Goodbye!")
+                print(" Goodbye!")
                 break
             if query:
                 self.query_clusters(query)

@@ -57,12 +57,12 @@ def load_model_safely(model_path):
         try:
             return CompatibleUnpickler(f).load()
         except Exception as e1:
-            print(f"⚠️  Custom unpickler failed: {e1}")
+            print(f"  Custom unpickler failed: {e1}")
             f.seek(0)
             try:
                 return pickle.load(f)
             except Exception as e2:
-                print(f"⚠️  Standard pickle also failed: {e2}")
+                print(f"  Standard pickle also failed: {e2}")
                 raise RuntimeError(
                     f"Cannot load model from {model_path}.\n"
                     f"Errors: {e1} | {e2}\n"
@@ -93,11 +93,11 @@ load_dotenv(find_dotenv())
 try:
     from llama_index.llms.groq import Groq
     _LLAMA_INDEX_IMPORT_ERROR = None
-    print(f"✅ Groq imported from: {__file__}")  # ← add this
+    print(f" Groq imported from: {__file__}")  # ← add this
 except ImportError as _groq_err:
     Groq = None
     _LLAMA_INDEX_IMPORT_ERROR = _groq_err
-    print(f"❌ Groq import failed: {_groq_err}")
+    print(f" Groq import failed: {_groq_err}")
 
 # PandasQueryEngine — independent
 try:
@@ -132,14 +132,14 @@ class LLMQueryEngine:
     }
 
     def __init__(self, model_path=None, df=None, csv_path="lfs_clustered_data.csv"):
-        print("🤖 Initializing LLM Query Engine …")
+        print(" Initializing LLM Query Engine …")
 
         # ---- Load data ----
         if df is not None:
             self.df = df.copy()
             self.has_clusters = 'cluster_id' in df.columns
         elif model_path and os.path.exists(model_path):
-            print(f"📂 Loading model from {model_path}")
+            print(f" Loading model from {model_path}")
             model = load_model_safely(model_path)
             self.df = model.df.copy() if hasattr(model, 'df') and model.df is not None else None
             self.has_clusters = self.df is not None and 'cluster_id' in self.df.columns
@@ -150,7 +150,7 @@ class LLMQueryEngine:
 
             # Use pre-computed centroid distances from CSV if available (preferred)
             if self.df is not None and 'distance_to_center' in self.df.columns:
-                print("✅ centroid distances loaded from CSV (pre-computed)")
+                print(" centroid distances loaded from CSV (pre-computed)")
             elif (self.has_clusters
                     and hasattr(model, 'kmeans')
                     and hasattr(model, 'weighted_data')
@@ -164,22 +164,22 @@ class LLMQueryEngine:
                             model.weighted_data - centroids[ids], axis=1
                         )
                         self.df['distance_to_center'] = distances
-                        print("✅ centroid distances computed at runtime (consider pre-computing in pipeline)")
+                        print(" centroid distances computed at runtime (consider pre-computing in pipeline)")
                     else:
-                        print("⚠️  weighted_data row count mismatch — skipping centroid distance computation")
+                        print("  weighted_data row count mismatch — skipping centroid distance computation")
                 except Exception as e:
-                    print(f"⚠️  Could not compute centroid distances: {e}")
+                    print(f"️  Could not compute centroid distances: {e}")
             else:
-                print("⚠️  distance_to_center not available — nearest-centroid selection disabled")
+                print(" distance_to_center not available — nearest-centroid selection disabled")
         elif os.path.exists(csv_path):
-            print(f"📂 Loading data from {csv_path}")
+            print(f" Loading data from {csv_path}")
             self.df = pd.read_csv(csv_path)
             self.has_clusters = 'cluster_id' in self.df.columns
-            print(f"✅ Loaded {len(self.df)} records × {len(self.df.columns)} columns")
+            print(f" Loaded {len(self.df)} records × {len(self.df.columns)} columns")
         else:
             self.df = None
             self.has_clusters = False
-            print("⚠️ No data loaded")
+            print(" No data loaded")
 
         # ---- Pre-compute group-median income lookup (for allocation scoring) ----
         # Built from the ~14% of records that DO have income data.
@@ -203,9 +203,9 @@ class LLMQueryEngine:
                             int(k) for k in (keys if isinstance(keys, tuple) else (keys,))
                         )
                         self._income_median_lookup[norm_key] = float(val)
-                    print(f"✅ Income group-median lookup: {len(self._income_median_lookup)} groups")
+                    print(f" Income group-median lookup: {len(self._income_median_lookup)} groups")
             except Exception as _e:
-                print(f"⚠️ Income lookup build failed (non-critical): {_e}")
+                print(f" Income lookup build failed (non-critical): {_e}")
 
         # ---- LLM setup ----
         self.llm = None
@@ -238,11 +238,11 @@ class LLMQueryEngine:
                     verbose=False,
                     synthesize_response=True,
                 )
-                print("✅ PandasQueryEngine ready (general queries)")
-            print("✅ Direct LLM ready (resource allocation)")
+                print(" PandasQueryEngine ready (general queries)")
+            print(" Direct LLM ready (resource allocation)")
 
         except Exception as e:
-            print(f"⚠️ LLM not available: {e}")
+            print(f" LLM not available: {e}")
             print("Set GROQ_API_KEY env var.  Get key → https://console.groq.com/keys")
 
         self.last_question = None
@@ -286,17 +286,6 @@ class LLMQueryEngine:
     # ==================================================================
 
     def _compute_need_score(self, row, item_type: str, question_lower: str) -> float:
-        """
-        Compute a composite need score for one person (higher = greater need).
-
-        Factors (weighted):
-          1. Income (40 %)  — lower income → higher score
-          2. Education (15 %) — lower education → higher score
-          3. Disability burden (15 %) — more difficulty → higher score
-          4. Informality (10 %) — informal workers → higher score
-          5. Sector (10 %) — Estate > Rural > Urban
-          6. Item-specific (10 %) — e.g. computer literacy for laptops
-        """
         score = 0.0
         weights = {
             'income': 0.40,
@@ -436,11 +425,6 @@ class LLMQueryEngine:
     # ==================================================================
 
     def _build_cluster_profiles(self) -> str:
-        """
-        Decode cluster centroids into human-readable demographic summaries
-        for inclusion in the Groq cluster-selection prompt.
-        Returns a formatted string describing each cluster.
-        """
         if not self.has_clusters or self.df is None:
             return "No cluster information available."
 
@@ -499,14 +483,6 @@ class LLMQueryEngine:
     # ==================================================================
 
     def _handle_resource_allocation(self, question: str, num_items: int, item_type: str) -> str:
-        """
-        End-to-end resource allocation pipeline:
-        1. Score every person with income data
-        2. Rank by need score (descending)
-        3. Build beneficiary table + summary statistics
-        4. Send self-contained prompt to LLM (NO code generation)
-        5. Return LLM-formatted answer
-        """
         df = self.df
         question_lower = question.lower()
 
@@ -519,10 +495,10 @@ class LLMQueryEngine:
         pool = df.copy()
 
         if len(pool) == 0:
-            return "⚠️ No data available for need-based resource allocation."
+            return " No data available for need-based resource allocation."
 
         # pool is already set to df.copy() above — score all 18,937 records globally.
-        print(f"📊 Scoring all {len(pool):,} records for need-based allocation …")
+        print(f" Scoring all {len(pool):,} records for need-based allocation …")
 
         # ---- 2. Score & rank all records ----
         pool['_need_score'] = pool.apply(
@@ -687,11 +663,11 @@ DO NOT fabricate numbers. Use ONLY the statistics above. Be concise."""
         intro_text = ""
         if self.llm is not None:
             try:
-                print(f"🤖 Requesting intro paragraph from LLM ({len(intro_prompt)} chars) …")
+                print(f" Requesting intro paragraph from LLM ({len(intro_prompt)} chars) …")
                 response = self.llm.complete(intro_prompt)
                 intro_text = str(response).strip()
             except Exception as e:
-                print(f"⚠️ LLM intro call failed: {e}")
+                print(f" LLM intro call failed: {e}")
                 intro_text = (
                     f"Allocation of {num_items} {item_type}: "
                     f"Top {n} beneficiaries selected by need score (Python-computed, exact)."
@@ -755,7 +731,7 @@ DO NOT fabricate numbers. Use ONLY the statistics above. Be concise."""
         If item_type is None, extracts the item from the question text.
         """
         if self.df is None:
-            return "⚠️ No data loaded."
+            return " No data loaded."
 
         question_lower = question.lower()
 
@@ -773,7 +749,7 @@ DO NOT fabricate numbers. Use ONLY the statistics above. Be concise."""
             )
             item_type = alloc_match.group(1) if alloc_match else "items"
 
-        print(f"🎯 Direct allocation route: {num_items}x {item_type}")
+        print(f" Direct allocation route: {num_items}x {item_type}")
         return self._handle_resource_allocation(question, num_items, item_type)
 
     # ==================================================================
@@ -925,10 +901,10 @@ RULES:
 
     def analyze_data(self, question: str):
         """Route question to resource-allocation or general analysis."""
-        print(f"\n🔍 Processing: {question}")
+        print(f"\n Processing: {question}")
 
         if self.df is None:
-            return "⚠️ No data loaded."
+            return " No data loaded."
 
         ql = question.lower()
 
@@ -936,10 +912,10 @@ RULES:
         if any(kw in ql for kw in ['columns', 'column names', 'fields', 'structure', 'schema']):
             info = [f"• {c}: {COLUMN_DESCRIPTIONS.get(c, 'Survey variable')}"
                     for c in self.df.columns]
-            return f"📊 {len(self.df.columns)} columns:\n" + "\n".join(info)
+            return f" {len(self.df.columns)} columns:\n" + "\n".join(info)
 
         if 'shape' in ql or ('how many' in ql and 'row' in ql):
-            return f"📊 {self.df.shape[0]:,} rows × {self.df.shape[1]} columns"
+            return f" {self.df.shape[0]:,} rows × {self.df.shape[1]} columns"
 
         # Detect type
         analysis_type, params = self._detect_analysis_type(ql)
@@ -954,7 +930,7 @@ RULES:
 
         # ---- General query (secondary path via PandasQueryEngine) ----
         if self.query_engine is None and self.llm is None:
-            return "⚠️ Query engine not initialized."
+            return " Query engine not initialized."
 
         stats = self._compute_statistics(question)
         enhanced = f"""{question}
@@ -984,7 +960,7 @@ EXAMPLE EXPECTED OUTPUT FORMAT:
                 self.last_answer = answer
                 return answer
             except Exception as e:
-                print(f"⚠️ PandasQueryEngine error: {e}")
+                print(f" PandasQueryEngine error: {e}")
 
         # Fallback: direct LLM
         if self.llm is not None:
@@ -995,7 +971,7 @@ EXAMPLE EXPECTED OUTPUT FORMAT:
                 self.last_answer = answer
                 return answer
             except Exception as e:
-                print(f"⚠️ Direct LLM error: {e}")
+                print(f" Direct LLM error: {e}")
 
         return f"Here are the relevant statistics:\n\n{stats}"
 
@@ -1020,12 +996,12 @@ EXAMPLE EXPECTED OUTPUT FORMAT:
 
     def ask_about_clusters(self, question: str) -> str:
         if not self.has_clusters:
-            return "⚠️ No cluster information in the dataset."
+            return " No cluster information in the dataset."
         return self.analyze_data(f"Regarding the cluster_id column: {question}")
 
     def compare_clusters(self) -> str:
         if not self.has_clusters:
-            return "⚠️ No cluster information in the dataset."
+            return " No cluster information in the dataset."
         return self.analyze_data(
             "Compare all clusters: count, mean age, mean income, dominant sector per cluster_id."
         )

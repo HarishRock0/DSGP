@@ -5,7 +5,7 @@ from dataloader.child_case_data_loader import ChildCasesDataLoader
 
 from signals.nlp_signals import NLPQuerySignal, RecommendationSignal
 from signals.child_nlp_signals import ChildNLPSignals, ChildRecommenderSignals
-from signals.mental_health_nlp_signals import MentalHealthNLPSignals, MentalHealthRecommenderSignals
+
 
 
 class NLPRecommendationAgent(Runnable):
