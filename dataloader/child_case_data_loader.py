@@ -11,28 +11,15 @@ class ChildCasesDataLoader:
         self.project_root = project_root
 
     def load(self):
-        # -------------------------------
-        # Paths
-        # -------------------------------
+
         model_path      = os.path.join(self.project_root, "model", "child_case_nlp.pkl")
         child_case_path = os.path.join(self.project_root, "data", "childcases.xlsx")
 
-        # -------------------------------
-        # Load trained model
-        # ChildCaseRuleEngine is imported above so pickle.load() can resolve it
-        # -------------------------------
         with open(model_path, "rb") as f:
             model = pickle.load(f)
 
-        # -------------------------------
-        # Attach SentenceTransformer fresh at runtime
-        # Version-safe — not stored in pkl
-        # -------------------------------
         model.st_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-        # -------------------------------
-        # Load & clean child case data (mirrors notebook Cell 6)
-        # -------------------------------
         child_data = pd.read_excel(child_case_path, skiprows=2)
 
         if len(child_data.columns) > 1:

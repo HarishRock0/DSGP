@@ -10,16 +10,13 @@ from signals.child_nlp_signals import ChildNLPSignals, ChildRecommenderSignals
 
 class NLPRecommendationAgent(Runnable):
     def __init__(self, project_root):
-        # ── Poverty ───────────────────────────────────────────────────────
+
         self.model, self.df = PovertyDataLoader(project_root).load()
         self.embeddings = self.model.encoder.encode(
             self.df['text'].tolist(),
             convert_to_tensor=True
         )
 
-        # ── Child Cases ───────────────────────────────────────────────────
-        # ChildCaseRuleEngine has pre-computed embeddings inside it
-        # recommend() handles precheck + semantic match internally — no re-encoding needed
         self.child_case_model, self.child_case_df = ChildCasesDataLoader(project_root).load()
 
 

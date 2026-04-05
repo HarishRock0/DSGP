@@ -10,35 +10,19 @@ class PovertyDataLoader:
         self.project_root = project_root
 
     def load(self):
-        # -------------------------------
-        # Paths
-        # -------------------------------
+
         model_path        = os.path.join(self.project_root, "model", "poverty_risk_model.pkl")
         demographic_path  = os.path.join(self.project_root, "data", "demographic_district_wise.xlsx")
         poverty_line_path = os.path.join(self.project_root, "data", "Povertylines.xlsx")
 
-        # -------------------------------
-        # Load trained model
-        # PovertyRiskModel is imported above so pickle.load() can resolve it
-        # -------------------------------
         with open(model_path, "rb") as f:
             model = pickle.load(f)
 
-        # -------------------------------
-        # Attach SentenceTransformer fresh at runtime
-        # Version-safe — not stored in pkl
-        # -------------------------------
         model.encoder = SentenceTransformer("all-MiniLM-L6-v2")
 
-        # -------------------------------
-        # Load datasets
-        # -------------------------------
         region_data  = pd.read_excel(demographic_path)
         poverty_data = pd.read_excel(poverty_line_path)
 
-        # -------------------------------
-        # Poverty Feature Engineering
-        # -------------------------------
         poverty_data.columns = poverty_data.columns.str.strip()
 
         poverty_cols = [
@@ -58,9 +42,6 @@ class PovertyDataLoader:
             "mean_household_per_capita_expenditure_per_month",
         ]
 
-        # -------------------------------
-        # Derived Features
-        # -------------------------------
         poverty_data["poverty_line_latest"] = poverty_data[poverty_cols].iloc[:, -1]
         poverty_data["poverty_line_mean"]   = poverty_data[poverty_cols].mean(axis=1)
         poverty_data["poverty_line_trend"]  = (
@@ -91,9 +72,6 @@ class PovertyDataLoader:
 
         poverty_features = poverty_data[["District"] + extended_features]
 
-        # -------------------------------
-        # Population Data
-        # -------------------------------
         district_pop = (
             region_data.groupby("DISTRICT_N")["PPROJ_22"]
             .sum()
@@ -103,10 +81,6 @@ class PovertyDataLoader:
             columns={"DISTRICT_N": "District", "PPROJ_22": "Population"},
             inplace=True,
         )
-
-        # -------------------------------
-        # Merge poverty + population
-        # -------------------------------
         merged_df = pd.merge(
             district_pop,
             poverty_features,
@@ -114,13 +88,22 @@ class PovertyDataLoader:
             how="inner",
         )
 
-        # -------------------------------
-        # Text representation for NLP
-        # -------------------------------
+        if hasattr(model, "district_data") and model.district_data is not None:
+            risk_cols = model.district_data[["District", "risk_index", "risk_tier"]].copy()
+            merged_df = pd.merge(merged_df, risk_cols, on="District", how="left")
+        else:
+
+            merged_df["risk_index"] = "unknown"
+            merged_df["risk_tier"]  = "UNKNOWN"
+
+        merged_df["risk_index"] = merged_df["risk_index"].fillna("unknown").astype(str)
+        merged_df["risk_tier"]  = merged_df["risk_tier"].fillna("UNKNOWN").astype(str)
+
         merged_df["text"] = (
             merged_df["District"]
-            + " Population: "
-            + merged_df["Population"].astype(str)
+            + " RiskTier: "   + merged_df["risk_tier"]
+            + " RiskIndex: "  + merged_df["risk_index"]
+            + " Population: " + merged_df["Population"].astype(str)
             + " PovertyIndexInputs: "
             + merged_df[extended_features].astype(str).agg(" ".join, axis=1)
         )

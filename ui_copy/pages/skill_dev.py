@@ -9,7 +9,6 @@ API_BASE = "http://localhost:8001"
 
 st.set_page_config(
     page_title="LFS-2023 AI · Sri Lanka Workforce",
-    page_icon="🇱🇰",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -18,7 +17,6 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&display=swap');
-
 :root {
     --ink:  #0f0a1e;
     --muted:#6b5f8a;

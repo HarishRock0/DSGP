@@ -1,10 +1,3 @@
-"""
-NLPClusterQueryEngine — intent detection and cluster access for LFS-2023.
-
-Ollama dependency REMOVED. Intent detection is now pure keyword matching,
-which is faster, more reliable, and has no external dependencies.
-The Groq LLM (via LLMQ.py) handles all natural language generation.
-"""
 
 import os
 import re

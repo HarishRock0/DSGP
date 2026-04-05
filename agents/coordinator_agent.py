@@ -17,10 +17,6 @@ class CoordinatorAgent(Runnable):
         self._allocation_agent     = None
         self._child_allocation_agent = None
 
-    # ------------------------------------------------------------------
-    # Lazy properties — imports are inside the getter so nothing loads
-    # until the method that needs it is actually called.
-    # ------------------------------------------------------------------
     @property
     def recommender(self):
         if self._recommender is None:
@@ -49,9 +45,6 @@ class CoordinatorAgent(Runnable):
             self._child_allocation_agent = ChildAllocationAgent(self.project_root)
         return self._child_allocation_agent
 
-    # ------------------------------------------------------------------
-    # Existing methods — unchanged
-    # ------------------------------------------------------------------
     def invoke(self, user_input: str):
         nlp_signal = NLPQuerySignal(preference=user_input)
         rec_signal = self.recommender.invoke(nlp_signal)
@@ -89,9 +82,6 @@ class CoordinatorAgent(Runnable):
             "low_districts":      df[df["risk_tier"] == "LOW"]["district"].tolist(),
         }
 
-    # ------------------------------------------------------------------
-    # Child protection — uses ChildAllocationAgent, never touches poverty
-    # ------------------------------------------------------------------
     def allocate_child_budget(self, total_budget: float, query: str = None, selected_districts: list = None) -> dict:
         request  = ChildBudgetAllocationRequest(total_budget=total_budget, query=query, selected_districts=selected_districts)
         response = self.child_allocation_agent.invoke(request)
